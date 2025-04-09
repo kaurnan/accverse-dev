@@ -175,15 +175,15 @@ const SMSFTaxForm: React.FC = () => {
     propertyCapitalGains: '',
     rentalIncome: '',
     trustDistribution: '',
-    partnershipDistribution: string;
-  dividendIncome: string;
-  investmentExpenses: string;
-  managementExpenses: string;
-  expenseInvoices: File | null;
+    partnershipDistribution: '',
+    dividendIncome: '',
+    investmentExpenses: '',
+    managementExpenses: '',
+    expenseInvoices: null,
 
   // Part 5: Declaration
-  signature: string;
-  declarationAccepted: string;
+  signature: '',
+  declarationAccepted: '',
     
     // Other
     formType: 'smsf'
