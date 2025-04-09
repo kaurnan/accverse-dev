@@ -122,7 +122,7 @@ const FormStep1: React.FC<FormStep1Props> = ({
               onValueChange={(value) => handleRadioChange('prefix', value)}
               required
               error={touched.prefix ? errors.prefix : ""}
-{/*               tooltip="Select your prefix" */}
+              // tooltip="Select your prefix"
             >
               <SelectContent>
                 <SelectItem value="Mr">Mr</SelectItem>
@@ -309,7 +309,7 @@ const FormStep1: React.FC<FormStep1Props> = ({
     onValueChange={(value) => handleRadioChange('state', value)}
     required
     error={touched.prefix ? errors.state : ""}
-{/*     tooltip="Select your state" */}
+    // tooltip="Select your state"
               >
                 <SelectContent>
                   {/* <SelectItem value="">Select State</SelectItem> */}
