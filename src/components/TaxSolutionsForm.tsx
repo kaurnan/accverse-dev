@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { toast } from 'react-toastify';
 import FormStep1 from './tax-form/FormStep1';
@@ -7,6 +8,8 @@ import FormStep3 from './tax-form/FormStep3';
 import FormStep4 from './tax-form/FormStep4';
 import FormStep5 from './tax-form/FormStep5';
 import apiClient from '../services/api';
+import * as validation from '../utils/form-validation';
+import { Shield, Check, AlertCircle } from 'lucide-react';
 
 // Define the form data interface
 interface FormData {
@@ -20,6 +23,7 @@ interface FormData {
   mobile: string;
   email: string;
   address: string;
+  address2: string;
   suburb: string;
   state: string;
   postcode: string;
@@ -95,6 +99,7 @@ const TaxSolutionsForm: React.FC = () => {
     mobile: '',
     email: '',
     address: '',
+    address2: '',
     suburb: '',
     state: '',
     postcode: '',
@@ -149,24 +154,106 @@ const TaxSolutionsForm: React.FC = () => {
     superContribution: '',
     interestExpense: '',
     workFromHome: '',
-
+    
     // Part 5: Declaration
     signature: '',
     supportingDocs: null
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [savedFormId, setSavedFormId] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const validateCurrentStep = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    let isValid = true;
+
+    switch (currentStep) {
+      case 1:
+        // Validate personal details
+        if (!formData.firstName) {
+          newErrors.firstName = 'First name is required';
+          isValid = false;
+        }
+        if (!formData.lastName) {
+          newErrors.lastName = 'Last name is required';
+          isValid = false;
+        }
+        if (!formData.email) {
+          newErrors.email = 'Email is required';
+          isValid = false;
+        } else if (!validation.validateEmail(formData.email)) {
+          newErrors.email = 'Please enter a valid email address';
+          isValid = false;
+        }
+        if (!formData.mobile) {
+          newErrors.mobile = 'Mobile number is required';
+          isValid = false;
+        } else if (!validation.validatePhone(formData.mobile)) {
+          newErrors.mobile = 'Please enter a valid Australian mobile number';
+          isValid = false;
+        }
+        if (!formData.dateOfBirth) {
+          newErrors.dateOfBirth = 'Date of birth is required';
+          isValid = false;
+        } else if (validation.isFutureDate(formData.dateOfBirth)) {
+          newErrors.dateOfBirth = 'Date of birth cannot be in the future';
+          isValid = false;
+        }
+        if (!formData.address) {
+          newErrors.address = 'Address is required';
+          isValid = false;
+        }
+        if (!formData.suburb) {
+          newErrors.suburb = 'Suburb is required';
+          isValid = false;
+        }
+        if (!formData.state) {
+          newErrors.state = 'State is required';
+          isValid = false;
+        }
+        if (!formData.postcode) {
+          newErrors.postcode = 'Postcode is required';
+          isValid = false;
+        } else if (!validation.validatePostcode(formData.postcode)) {
+          newErrors.postcode = 'Please enter a valid Australian postcode';
+          isValid = false;
+        }
+        if (formData.taxpayerType === 'soleTrader' && !formData.abn) {
+          newErrors.abn = 'ABN is required for Sole Traders';
+          isValid = false;
+        }
+        break;
+
+      case 5:
+        // Validate declaration
+        if (!formData.signature) {
+          newErrors.signature = 'Signature is required';
+          isValid = false;
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
 
   const handleNext = () => {
-    // Basic validation could be added here
-    if (currentStep < 5) {
-      setCurrentStep(currentStep + 1);
-      window.scrollTo(0, 0);
-      // Save progress to backend
-      if (formData.email) {
-        handleSaveProgress();
+    if (validateCurrentStep()) {
+      if (currentStep < 5) {
+        setCurrentStep(currentStep + 1);
+        window.scrollTo(0, 0);
+        // Save progress to backend
+        if (formData.email) {
+          handleSaveProgress();
+        }
       }
+    } else {
+      toast.error("Please correct the errors before proceeding.");
     }
   };
 
@@ -183,6 +270,15 @@ const TaxSolutionsForm: React.FC = () => {
       ...prev,
       [name]: value
     }));
+
+    // Clear error when field is changed
+    if (errors[name]) {
+      setErrors(prev => {
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
+      });
+    }
   };
 
   const handleRadioChange = (name: string, value: string) => {
@@ -190,6 +286,15 @@ const TaxSolutionsForm: React.FC = () => {
       ...prev,
       [name]: value
     }));
+
+    // Clear error when field is changed
+    if (errors[name]) {
+      setErrors(prev => {
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
+      });
+    }
   };
 
   const handleCheckboxChange = (name: string) => {
@@ -206,11 +311,21 @@ const TaxSolutionsForm: React.FC = () => {
         [fieldName]: e.target.files ? e.target.files[0] : null
       }));
       console.log(`File selected for ${fieldName}:`, e.target.files[0]);
+      
+      // Clear error when field is changed
+      if (errors[fieldName]) {
+        setErrors(prev => {
+          const updated = { ...prev };
+          delete updated[fieldName];
+          return updated;
+        });
+      }
     }
   };
 
   const handleSaveProgress = async () => {
     try {
+      setSaveSuccess(false);
       // Create a JSON representation of the form data (without files)
       const formDataForSaving = { ...formData };
       
@@ -231,7 +346,13 @@ const TaxSolutionsForm: React.FC = () => {
       
       if (response.data && response.data.id) {
         setSavedFormId(response.data.id);
-        toast.success('Progress saved successfully!');
+        setSaveSuccess(true);
+        toast.success('Progress saved successfully! You can resume later.');
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSaveSuccess(false);
+        }, 3000);
       }
       
     } catch (error) {
@@ -242,16 +363,16 @@ const TaxSolutionsForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Final validation check
+    if (!validateCurrentStep()) {
+      toast.error('Please correct the errors before submitting');
+      return;
+    }
+    
     setSubmitting(true);
 
     try {
-      // Validation
-      if (!formData.firstName || !formData.lastName || !formData.email || !formData.signature) {
-        toast.error('Please fill in all required fields');
-        setSubmitting(false);
-        return;
-      }
-
       // Create a FormData object to handle file uploads
       const submissionData = new FormData();
       
@@ -264,6 +385,7 @@ const TaxSolutionsForm: React.FC = () => {
           submissionData.append(key, value.toString());
         }
       });
+      
       console.log('About to submit form data:');
       
       // Send data to backend API
@@ -274,7 +396,17 @@ const TaxSolutionsForm: React.FC = () => {
       });
       
       console.log('Form submission response:', response.data);
-      toast.success('Tax form submitted successfully! We will contact you soon.');
+      
+      toast.success(
+        <div className="flex items-center gap-2">
+          <Check className="h-5 w-5 text-green-500" />
+          <span>Tax form submitted successfully!</span>
+        </div>, 
+        {
+          autoClose: 5000,
+          style: { background: '#f0fdf4', borderLeft: '4px solid #22c55e' }
+        }
+      );
       
       // Reset form after successful submission
       setFormData({
@@ -288,6 +420,7 @@ const TaxSolutionsForm: React.FC = () => {
         mobile: '',
         email: '',
         address: '',
+        address2: '',
         suburb: '',
         state: '',
         postcode: '',
@@ -354,7 +487,16 @@ const TaxSolutionsForm: React.FC = () => {
       
     } catch (error) {
       console.error('Error submitting form:', error);
-      toast.error('Error submitting form. Please try again.');
+      toast.error(
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 text-red-500" />
+          <span>Error submitting form. Please try again.</span>
+        </div>,
+        {
+          autoClose: 5000,
+          style: { background: '#fef2f2', borderLeft: '4px solid #ef4444' }
+        }
+      );
     } finally {
       setSubmitting(false);
     }
@@ -400,6 +542,7 @@ const TaxSolutionsForm: React.FC = () => {
             formData={formData}
             handleChange={handleChange}
             handleFileChange={handleFileChange}
+            errors={errors}
           />
         );
       default:
@@ -411,16 +554,35 @@ const TaxSolutionsForm: React.FC = () => {
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Step {currentStep} of 5</h2>
+          <div>
+            <h2 className="text-xl font-bold text-purple-700">Step {currentStep} of 5</h2>
+            <p className="text-sm text-gray-500">Complete all steps to submit your tax information</p>
+          </div>
+          
           {currentStep < 5 && (
-            <Button variant="outline" onClick={handleSaveProgress} type="button">
-              Save & Continue Later
-            </Button>
+            <div className="relative">
+              <Button 
+                variant="outline" 
+                onClick={handleSaveProgress} 
+                type="button"
+                className="border-purple-300 hover:bg-purple-50 flex items-center gap-2"
+              >
+                <Shield className="h-4 w-4" />
+                Save & Continue Later
+              </Button>
+              
+              {saveSuccess && (
+                <div className="absolute right-0 top-full mt-2 bg-green-50 text-green-700 text-sm p-2 rounded border border-green-200 flex items-center gap-1 z-10">
+                  <Check className="h-4 w-4" />
+                  Progress saved!
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2.5">
           <div 
-            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+            className="bg-purple-600 h-2.5 rounded-full transition-all duration-300"
             style={{ width: `${currentStep * 20}%` }}
           ></div>
         </div>
@@ -435,6 +597,7 @@ const TaxSolutionsForm: React.FC = () => {
               variant="outline" 
               onClick={handlePrevious}
               type="button"
+              className="border-purple-300 hover:bg-purple-50"
             >
               Previous
             </Button>
@@ -445,6 +608,7 @@ const TaxSolutionsForm: React.FC = () => {
               <Button 
                 onClick={handleNext}
                 type="button"
+                className="bg-purple-600 hover:bg-purple-700"
               >
                 Next
               </Button>
@@ -454,9 +618,22 @@ const TaxSolutionsForm: React.FC = () => {
               <Button 
                 type="submit"
                 disabled={submitting}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
               >
-                {submitting ? 'Submitting...' : 'Submit Form'}
+                {submitting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" /> 
+                    Submit Form
+                  </>
+                )}
               </Button>
             )}
           </div>

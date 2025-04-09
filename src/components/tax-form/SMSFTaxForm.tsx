@@ -91,6 +91,7 @@ interface SMSFFormData {
 
   // Part 5: Declaration
   signature: string;
+  declarationAccepted: string;
 
   // Other
   formType: string;
@@ -174,29 +175,102 @@ const SMSFTaxForm: React.FC = () => {
     propertyCapitalGains: '',
     rentalIncome: '',
     trustDistribution: '',
-    partnershipDistribution: '',
-    dividendIncome: '',
-    investmentExpenses: '',
-    managementExpenses: '',
-    expenseInvoices: null,
+    partnershipDistribution: string;
+  dividendIncome: string;
+  investmentExpenses: string;
+  managementExpenses: string;
+  expenseInvoices: File | null;
 
-    // Part 5: Declaration
-    signature: '',
+  // Part 5: Declaration
+  signature: string;
+  declarationAccepted: string;
     
     // Other
     formType: 'smsf'
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [savedFormId, setSavedFormId] = useState<string | null>(null);
 
+  const validateCurrentStep = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    let isValid = true;
+
+    switch (currentStep) {
+      case 1:
+        // Validate SMSF Details
+        if (!formData.smsfName) {
+          newErrors.smsfName = 'SMSF name is required';
+          isValid = false;
+        }
+        if (!formData.streetAddress) {
+          newErrors.streetAddress = 'Address is required';
+          isValid = false;
+        }
+        if (!formData.city) {
+          newErrors.city = 'City is required';
+          isValid = false;
+        }
+        if (!formData.state) {
+          newErrors.state = 'State is required';
+          isValid = false;
+        }
+        if (!formData.postcode) {
+          newErrors.postcode = 'Postcode is required';
+          isValid = false;
+        }
+        if (!formData.contactName) {
+          newErrors.contactName = 'Contact name is required';
+          isValid = false;
+        }
+        if (!formData.contactEmail) {
+          newErrors.contactEmail = 'Contact email is required';
+          isValid = false;
+        }
+        if (!formData.contactPhone && !formData.contactMobile) {
+          newErrors.contactPhone = 'At least one contact number is required';
+          isValid = false;
+        }
+        break;
+        
+      case 5:
+        // Validate Declaration
+        if (!formData.signature) {
+          newErrors.signature = 'Signature is required';
+          isValid = false;
+        }
+        if (!formData.declarationAccepted || formData.declarationAccepted !== 'yes') {
+          newErrors.declarationAccepted = 'You must agree to the declaration';
+          isValid = false;
+        }
+        break;
+
+      default:
+        // No specific validations for other steps
+        break;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleNext = () => {
-    if (currentStep < 5) {
-      setCurrentStep(currentStep + 1);
-      window.scrollTo(0, 0);
-      // Save progress to backend
-      if (formData.contactEmail) {
-        handleSaveProgress();
+    if (validateCurrentStep()) {
+      if (currentStep < 5) {
+        setCurrentStep(currentStep + 1);
+        window.scrollTo(0, 0);
+        // Save progress to backend
+        if (formData.contactEmail) {
+          handleSaveProgress();
+        }
+      }
+    } else {
+      toast.error("Please correct the errors before proceeding.");
+      // Scroll to the first error
+      const firstErrorField = document.querySelector('.border-red-500');
+      if (firstErrorField) {
+        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
   };
@@ -214,6 +288,15 @@ const SMSFTaxForm: React.FC = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Clear error when field is changed
+    if (errors[name]) {
+      setErrors(prev => {
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
+      });
+    }
   };
 
   const handleRadioChange = (name: string, value: string) => {
@@ -221,6 +304,15 @@ const SMSFTaxForm: React.FC = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Clear error when field is changed
+    if (errors[name]) {
+      setErrors(prev => {
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
+      });
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
@@ -230,6 +322,15 @@ const SMSFTaxForm: React.FC = () => {
         [fieldName]: e.target.files ? e.target.files[0] : null
       }));
       console.log(`File selected for ${fieldName}:`, e.target.files[0]);
+      
+      // Clear error when field is changed
+      if (errors[fieldName]) {
+        setErrors(prev => {
+          const updated = { ...prev };
+          delete updated[fieldName];
+          return updated;
+        });
+      }
     }
   };
 
@@ -374,6 +475,7 @@ const SMSFTaxForm: React.FC = () => {
         managementExpenses: '',
         expenseInvoices: null,
         signature: '',
+        declarationAccepted: '',
         formType: 'smsf'
       });
       
@@ -397,7 +499,8 @@ const SMSFTaxForm: React.FC = () => {
           <FormStep1SMSF 
             formData={formData} 
             handleChange={handleChange} 
-            handleRadioChange={handleRadioChange} 
+            handleRadioChange={handleRadioChange}
+            errors={errors} 
           />
         );
       case 2:
@@ -407,6 +510,7 @@ const SMSFTaxForm: React.FC = () => {
             handleChange={handleChange}
             handleRadioChange={handleRadioChange}
             handleFileChange={handleFileChange}
+            errors={errors}
           />
         );
       case 3:
@@ -416,6 +520,7 @@ const SMSFTaxForm: React.FC = () => {
             handleChange={handleChange}
             handleRadioChange={handleRadioChange}
             handleFileChange={handleFileChange}
+            errors={errors}
           />
         );
       case 4:
@@ -425,6 +530,7 @@ const SMSFTaxForm: React.FC = () => {
             handleChange={handleChange}
             handleRadioChange={handleRadioChange}
             handleFileChange={handleFileChange}
+            errors={errors}
           />
         );
       case 5:
@@ -432,6 +538,8 @@ const SMSFTaxForm: React.FC = () => {
           <FormStep5SMSF 
             formData={formData}
             handleChange={handleChange}
+            handleRadioChange={handleRadioChange}
+            errors={errors}
           />
         );
       default:

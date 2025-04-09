@@ -60,6 +60,7 @@ interface BusinessFormData {
   // Part 4: Declaration
   signature: string;
   signature2: string;
+  declarationAccepted: string;
 
   // Other
   formType: string;
@@ -121,21 +122,114 @@ const BusinessTaxForm: React.FC = () => {
     // Part 4: Declaration
     signature: '',
     signature2: '',
+    declarationAccepted: '',
 
     // Other
     formType: 'business'
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [savedFormId, setSavedFormId] = useState<string | null>(null);
 
+  const validateCurrentStep = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    let isValid = true;
+
+    switch (currentStep) {
+      case 1:
+        // Validate Business Details
+        if (!formData.entityName) {
+          newErrors.entityName = 'Entity name is required';
+          isValid = false;
+        }
+        if (!formData.contactName) {
+          newErrors.contactName = 'Contact name is required';
+          isValid = false;
+        }
+        if (!formData.contactEmail) {
+          newErrors.contactEmail = 'Contact email is required';
+          isValid = false;
+        }
+        if (!formData.contactPhone && !formData.contactMobile) {
+          newErrors.contactPhone = 'At least one contact number is required';
+          isValid = false;
+        }
+        if (!formData.streetAddress) {
+          newErrors.streetAddress = 'Street address is required';
+          isValid = false;
+        }
+        if (!formData.city) {
+          newErrors.city = 'City is required';
+          isValid = false;
+        }
+        if (!formData.state) {
+          newErrors.state = 'State is required';
+          isValid = false;
+        }
+        if (!formData.postcode) {
+          newErrors.postcode = 'Postcode is required';
+          isValid = false;
+        }
+        break;
+        
+      case 4:
+        // Validate Declaration and Banking
+        if (!formData.bankBsb) {
+          newErrors.bankBsb = 'BSB is required';
+          isValid = false;
+        }
+        if (!formData.bankAccountNo) {
+          newErrors.bankAccountNo = 'Account number is required';
+          isValid = false;
+        }
+        if (!formData.bankAccountName) {
+          newErrors.bankAccountName = 'Account name is required';
+          isValid = false;
+        }
+        if (!formData.bankName) {
+          newErrors.bankName = 'Bank name is required';
+          isValid = false;
+        }
+        if (!formData.ownerIdDocument) {
+          newErrors.ownerIdDocument = 'Owner ID document is required';
+          isValid = false;
+        }
+        if (!formData.signature) {
+          newErrors.signature = 'Signature is required';
+          isValid = false;
+        }
+        if (!formData.declarationAccepted || formData.declarationAccepted !== 'yes') {
+          newErrors.declarationAccepted = 'You must agree to the declaration';
+          isValid = false;
+        }
+        break;
+        
+      default:
+        // No specific validations for other steps
+        break;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-      window.scrollTo(0, 0);
-      // Save progress to backend
-      if (formData.contactEmail) {
-        handleSaveProgress();
+    if (validateCurrentStep()) {
+      if (currentStep < 4) {
+        setCurrentStep(currentStep + 1);
+        window.scrollTo(0, 0);
+        // Save progress to backend
+        if (formData.contactEmail) {
+          handleSaveProgress();
+        }
+      }
+    } else {
+      toast.error("Please correct the errors before proceeding.");
+      // Scroll to the first error
+      const firstErrorField = document.querySelector('.border-red-500');
+      if (firstErrorField) {
+        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
   };
@@ -153,6 +247,15 @@ const BusinessTaxForm: React.FC = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Clear error when field is changed
+    if (errors[name]) {
+      setErrors(prev => {
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
+      });
+    }
   };
 
   const handleRadioChange = (name: string, value: string) => {
@@ -160,6 +263,15 @@ const BusinessTaxForm: React.FC = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Clear error when field is changed
+    if (errors[name]) {
+      setErrors(prev => {
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
+      });
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
@@ -169,6 +281,15 @@ const BusinessTaxForm: React.FC = () => {
         [fieldName]: e.target.files ? e.target.files[0] : null
       }));
       console.log(`File selected for ${fieldName}:`, e.target.files[0]);
+      
+      // Clear error when field is changed
+      if (errors[fieldName]) {
+        setErrors(prev => {
+          const updated = { ...prev };
+          delete updated[fieldName];
+          return updated;
+        });
+      }
     }
   };
 
@@ -287,6 +408,7 @@ const BusinessTaxForm: React.FC = () => {
         trustType: '',
         signature: '',
         signature2: '',
+        declarationAccepted: '',
         formType: 'business'
       });
       
@@ -312,6 +434,7 @@ const BusinessTaxForm: React.FC = () => {
             handleChange={handleChange} 
             handleRadioChange={handleRadioChange} 
             handleFileChange={handleFileChange} 
+            errors={errors}
           />
         );
       case 2:
@@ -320,6 +443,7 @@ const BusinessTaxForm: React.FC = () => {
             formData={formData} 
             handleChange={handleChange}
             handleRadioChange={handleRadioChange} 
+            errors={errors}
           />
         );
       case 3:
@@ -328,6 +452,7 @@ const BusinessTaxForm: React.FC = () => {
             formData={formData}
             handleChange={handleChange}
             handleRadioChange={handleRadioChange}
+            errors={errors}
           />
         );
       case 4:
@@ -336,6 +461,8 @@ const BusinessTaxForm: React.FC = () => {
             formData={formData}
             handleChange={handleChange}
             handleFileChange={handleFileChange}
+            handleRadioChange={handleRadioChange}
+            errors={errors}
           />
         );
       default:

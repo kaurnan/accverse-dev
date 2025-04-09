@@ -1,17 +1,102 @@
+
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, ChevronDown, ChevronUp, Info } from "lucide-react"
 
 import { cn } from "../../lib/utils"
 
-const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
-    ({ children, ...props }, ref) => (
-      <select ref={ref} {...props} className="your-custom-class">
-        {children}
-      </select>
-    )
-  );
-  Select.displayName = "Select";
+export interface SelectProps extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root> {
+  tooltip?: string;
+  error?: string;
+  required?: boolean;
+  className?: string;
+  onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+}
+
+const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
+  ({ className, tooltip, error, children, required, value, onValueChange, onChange, ...props }, ref) => {
+    // Handle onChange if provided (for compatibility with form handlers)
+    const handleValueChange = (newValue: string) => {
+      if (onValueChange) {
+        onValueChange(newValue);
+      }
+      
+      // Create a synthetic event for onChange handler compatibility
+      if (onChange) {
+        const syntheticEvent = {
+          target: {
+            name: props.name || "",
+            value: newValue
+          }
+        } as React.ChangeEvent<HTMLSelectElement>;
+        
+        onChange(syntheticEvent);
+      }
+    };
+    
+    return (
+      <div className="relative w-full">
+        {tooltip && (
+          <div className="absolute -top-0.5 right-0">
+            <div className="group relative inline-block">
+              <button
+                type="button"
+                className="text-blue-500"
+                aria-label="Show information"
+                tabIndex={-1}
+              >
+                <Info size={16} />
+              </button>
+              <div className="absolute z-50 right-0 bottom-full mb-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
+                {tooltip}
+              </div>
+            </div>
+          </div>
+        )}
+      
+        <SelectPrimitive.Root value={value} onValueChange={handleValueChange}>
+          <SelectPrimitive.Trigger
+            ref={ref}
+            {...props} 
+            className={cn(
+              "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+              error ? "border-red-500 focus:ring-red-500" : "",
+              className
+            )}
+          >
+            <SelectPrimitive.Value placeholder="Select an option" />
+            <SelectPrimitive.Icon>
+              <ChevronDown className="h-4 w-4 opacity-50" />
+            </SelectPrimitive.Icon>
+          </SelectPrimitive.Trigger>
+
+          <SelectPrimitive.Portal>
+            <SelectPrimitive.Content 
+              className="relative z-50 min-w-[8rem] overflow-hidden rounded-md border bg-white text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+              position="popper"
+              sideOffset={5}
+            >
+              <SelectPrimitive.ScrollUpButton className="flex cursor-default items-center justify-center py-1">
+                <ChevronUp className="h-4 w-4" />
+              </SelectPrimitive.ScrollUpButton>
+              
+              <SelectPrimitive.Viewport className="p-1 bg-white">
+                {children}
+              </SelectPrimitive.Viewport>
+              
+              <SelectPrimitive.ScrollDownButton className="flex cursor-default items-center justify-center py-1">
+                <ChevronDown className="h-4 w-4" />
+              </SelectPrimitive.ScrollDownButton>
+            </SelectPrimitive.Content>
+          </SelectPrimitive.Portal>
+        </SelectPrimitive.Root>
+
+        {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      </div>
+    );
+  }
+);
+Select.displayName = "Select";
 
 const SelectGroup = SelectPrimitive.Group
 
@@ -80,7 +165,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-white text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
         position === "popper" &&
           "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
         className
@@ -91,7 +176,7 @@ const SelectContent = React.forwardRef<
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
-          "p-1",
+          "p-1 bg-white",
           position === "popper" &&
             "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
         )}
@@ -123,7 +208,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 bg-white hover:bg-gray-100",
       className
     )}
     {...props}
