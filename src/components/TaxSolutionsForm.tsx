@@ -1,19 +1,22 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
-import { toast } from 'react-toastify';
+import { ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Save } from 'lucide-react';
+import { useToast } from "../hooks/use-toast";
+import { scrollToElement } from '../lib/utils';
+
+// Import form step components
 import FormStep1 from './tax-form/FormStep1';
 import FormStep2 from './tax-form/FormStep2';
 import FormStep3 from './tax-form/FormStep3';
 import FormStep4 from './tax-form/FormStep4';
 import FormStep5 from './tax-form/FormStep5';
-import apiClient from '../services/api';
-import * as validation from '../utils/form-validation';
-import { Shield, Check, AlertCircle } from 'lucide-react';
 
-// Define the form data interface
-interface FormData {
-  // Part 1: Personal Details
+interface TaxSolutionsFormProps {
+  onSubmit?: (data: any) => void;
+}
+
+interface FormDataType {
+  [key: string]: string | File | null;
   taxpayerType: string;
   prefix: string;
   firstName: string;
@@ -27,69 +30,14 @@ interface FormData {
   suburb: string;
   state: string;
   postcode: string;
-  tfn: string;
-  abn: string;
-  gstRequired: string;
-  otherServices: string;
-  fiscalYear: string;
-  bankBsb: string;
-  bankAccountNo: string;
-  bankAccountName: string;
-  bankName: string;
-  updateAtoDetails: string;
-  identification: File | null;
-
-  // Part 2: Tax Residency & Offsets
-  citizenStatus: string;
-  spouse: string;
-  dependents: string;
-  medicare: string;
-  privateHealth: string;
-  hecsDebt: string;
-  privateHealthFile: File | null;
-
-  // Part 3: Taxable Income
-  salary: string;
-  interest: string;
-  dividends: string;
-  partnership: string;
-  personalServiceIncome: string;
-  soleTraderIncome: string;
-  soldInvestments: string;
-  soldRental: string;
-  foreignIncome: string;
-  rentalIncome: string;
-  sharingEconomyIncome: string;
-  pensionIncome: string;
-  employeeShareScheme: string;
-  otherIncome: string;
-
-  // Part 4: Expenses
-  carExpense: string;
-  uniformExpense: string;
-  travelExpense: string;
-  educationExpense: string;
-  phoneExpense: string;
-  toolsExpense: string;
-  otherWorkExpenses: string;
-  incomeProtectionInsurance: string;
-  donations: string;
-  taxAgentFees: string;
-  superContribution: string;
-  interestExpense: string;
-  workFromHome: string;
-  
-  // Part 5: Declaration
+  taxFileNumber: string;
   signature: string;
-  supportingDocs: File | null;
-  
-  [key: string]: string | string[] | boolean | File | null;
 }
 
-const TaxSolutionsForm: React.FC = () => {
+const TaxSolutionsForm: React.FC<TaxSolutionsFormProps> = ({ onSubmit }) => {
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<FormData>({
-    // Part 1: Personal Details
+  const [formData, setFormData] = useState<FormDataType>({
     taxpayerType: '',
     prefix: '',
     firstName: '',
@@ -103,314 +51,249 @@ const TaxSolutionsForm: React.FC = () => {
     suburb: '',
     state: '',
     postcode: '',
-    tfn: '',
-    abn: '',
-    gstRequired: '',
-    otherServices: '',
-    fiscalYear: '',
-    bankBsb: '',
-    bankAccountNo: '',
-    bankAccountName: '',
-    bankName: '',
-    updateAtoDetails: '',
-    identification: null,
-
-    // Part 2: Tax Residency & Offsets
-    citizenStatus: '',
-    spouse: '',
-    dependents: '',
-    medicare: '',
-    privateHealth: '',
-    hecsDebt: '',
-    privateHealthFile: null,
-
-    // Part 3: Taxable Income
-    salary: '',
-    interest: '',
-    dividends: '',
-    partnership: '',
-    personalServiceIncome: '',
-    soleTraderIncome: '',
-    soldInvestments: '',
-    soldRental: '',
-    foreignIncome: '',
-    rentalIncome: '',
-    sharingEconomyIncome: '',
-    pensionIncome: '',
-    employeeShareScheme: '',
-    otherIncome: '',
-
-    // Part 4: Expenses
-    carExpense: '',
-    uniformExpense: '',
-    travelExpense: '',
-    educationExpense: '',
-    phoneExpense: '',
-    toolsExpense: '',
-    otherWorkExpenses: '',
-    incomeProtectionInsurance: '',
-    donations: '',
-    taxAgentFees: '',
-    superContribution: '',
-    interestExpense: '',
-    workFromHome: '',
-    
-    // Part 5: Declaration
+    taxFileNumber: '',
     signature: '',
-    supportingDocs: null
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [savedFormId, setSavedFormId] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const totalSteps = 5;
 
-  const validateCurrentStep = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    let isValid = true;
-
-    switch (currentStep) {
-      case 1:
-        // Validate personal details
-        if (!formData.firstName) {
-          newErrors.firstName = 'First name is required';
-          isValid = false;
+  // Load form data from localStorage on initial load
+  useEffect(() => {
+    const savedData = localStorage.getItem('taxFormData');
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        // File objects can't be serialized, so we handle them separately
+        setFormData(prevData => ({ ...prevData, ...parsedData }));
+        
+        // Also try to restore the current step
+        const savedStep = localStorage.getItem('taxFormStep');
+        if (savedStep) {
+          setCurrentStep(parseInt(savedStep, 10));
         }
-        if (!formData.lastName) {
-          newErrors.lastName = 'Last name is required';
-          isValid = false;
-        }
-        if (!formData.email) {
-          newErrors.email = 'Email is required';
-          isValid = false;
-        } else if (!validation.validateEmail(formData.email)) {
-          newErrors.email = 'Please enter a valid email address';
-          isValid = false;
-        }
-        if (!formData.mobile) {
-          newErrors.mobile = 'Mobile number is required';
-          isValid = false;
-        } else if (!validation.validatePhone(formData.mobile)) {
-          newErrors.mobile = 'Please enter a valid Australian mobile number';
-          isValid = false;
-        }
-        if (!formData.dateOfBirth) {
-          newErrors.dateOfBirth = 'Date of birth is required';
-          isValid = false;
-        } else if (validation.isFutureDate(formData.dateOfBirth)) {
-          newErrors.dateOfBirth = 'Date of birth cannot be in the future';
-          isValid = false;
-        }
-        if (!formData.address) {
-          newErrors.address = 'Address is required';
-          isValid = false;
-        }
-        if (!formData.suburb) {
-          newErrors.suburb = 'Suburb is required';
-          isValid = false;
-        }
-        if (!formData.state) {
-          newErrors.state = 'State is required';
-          isValid = false;
-        }
-        if (!formData.postcode) {
-          newErrors.postcode = 'Postcode is required';
-          isValid = false;
-        } else if (!validation.validatePostcode(formData.postcode)) {
-          newErrors.postcode = 'Please enter a valid Australian postcode';
-          isValid = false;
-        }
-        if (formData.taxpayerType === 'soleTrader' && !formData.abn) {
-          newErrors.abn = 'ABN is required for Sole Traders';
-          isValid = false;
-        }
-        break;
-
-      case 5:
-        // Validate declaration
-        if (!formData.signature) {
-          newErrors.signature = 'Signature is required';
-          isValid = false;
-        }
-        break;
-
-      default:
-        break;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
-
-  const handleNext = () => {
-    if (validateCurrentStep()) {
-      if (currentStep < 5) {
-        setCurrentStep(currentStep + 1);
-        window.scrollTo(0, 0);
-        // Save progress to backend
-        if (formData.email) {
-          handleSaveProgress();
-        }
+        
+        toast({
+          title: "Form data loaded",
+          description: "Your previously saved progress has been restored.",
+          variant: "default",
+        });
+      } catch (error) {
+        console.error('Error loading saved form data:', error);
       }
-    } else {
-      toast.error("Please correct the errors before proceeding.");
     }
-  };
-
-  const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-      window.scrollTo(0, 0);
-    }
-  };
+  }, [toast]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
-    // Clear error when field is changed
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear validation error for this field if it exists
     if (errors[name]) {
       setErrors(prev => {
-        const updated = { ...prev };
-        delete updated[name];
-        return updated;
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
       });
     }
   };
-
+  
   const handleRadioChange = (name: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
-    // Clear error when field is changed
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear validation error for this field if it exists
     if (errors[name]) {
       setErrors(prev => {
-        const updated = { ...prev };
-        delete updated[name];
-        return updated;
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+    const file = e.target.files?.[0] || null;
+    setFormData(prev => ({ ...prev, [fieldName]: file }));
+    
+    // Clear validation error for this field if it exists
+    if (errors[fieldName]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
       });
     }
   };
 
-  const handleCheckboxChange = (name: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: prev[name] === 'yes' ? 'no' : 'yes'
-    }));
+  const validateStep = (step: number): boolean => {
+    const newErrors: Record<string, string> = {};
+    
+    if (step === 1) {
+      // Basic validation for Step 1
+      if (!formData.taxpayerType) newErrors.taxpayerType = "Please select a taxpayer type";
+      if (!formData.firstName) newErrors.firstName = "First name is required";
+      if (!formData.lastName) newErrors.lastName = "Last name is required";
+      if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
+      if (!formData.mobile) newErrors.mobile = "Mobile number is required";
+      if (!formData.email) newErrors.email = "Email is required";
+      if (!formData.address) newErrors.address = "Address is required";
+      if (!formData.suburb) newErrors.suburb = "Suburb is required";
+      if (!formData.state) newErrors.state = "State is required";
+      if (!formData.postcode) newErrors.postcode = "Postcode is required";
+      if (!formData.taxFileNumber) newErrors.taxFileNumber = "Tax File Number is required";
+    }
+    else if (step === 2) {
+      // Basic validation for Step 2
+      if (!formData.citizenStatus) newErrors.citizenStatus = "Please select your citizen status";
+      if (!formData.spouse) newErrors.spouse = "Please indicate if you have a spouse";
+      if (!formData.dependents) newErrors.dependents = "Please indicate if you have dependents";
+      if (!formData.medicare) newErrors.medicare = "Please indicate if you have Medicare";
+      if (!formData.privateHealth) newErrors.privateHealth = "Please indicate if you have private health insurance";
+      if (formData.privateHealth === 'yes' && !formData.privateHealthFile) {
+        newErrors.privateHealthFile = "Please upload your private health insurance statement";
+      }
+      if (!formData.hecsDebt) newErrors.hecsDebt = "Please indicate if you have HECS/HELP debt";
+    }
+    else if (step === 3) {
+      // Basic validation for Step 3
+      if (!formData.salary) newErrors.salary = "Please answer this question";
+      if (!formData.interest) newErrors.interest = "Please answer this question";
+      if (!formData.dividends) newErrors.dividends = "Please answer this question";
+      if (!formData.partnership) newErrors.partnership = "Please answer this question";
+      if (!formData.personalServiceIncome) newErrors.personalServiceIncome = "Please answer this question";
+      if (!formData.soleTraderIncome) newErrors.soleTraderIncome = "Please answer this question";
+      if (!formData.soldInvestments) newErrors.soldInvestments = "Please answer this question";
+      if (!formData.soldRental) newErrors.soldRental = "Please answer this question";
+      if (!formData.foreignIncome) newErrors.foreignIncome = "Please answer this question";
+      if (!formData.rentalIncome) newErrors.rentalIncome = "Please answer this question";
+      if (!formData.sharingEconomyIncome) newErrors.sharingEconomyIncome = "Please answer this question";
+      if (!formData.pensionIncome) newErrors.pensionIncome = "Please answer this question";
+      if (!formData.employeeShareScheme) newErrors.employeeShareScheme = "Please answer this question";
+      if (!formData.otherIncome) newErrors.otherIncome = "Please answer this question";
+    }
+    else if (step === 4) {
+      // Basic validation for Step 4
+      if (!formData.carExpense) newErrors.carExpense = "Please answer this question";
+      if (!formData.uniformExpense) newErrors.uniformExpense = "Please answer this question";
+      if (!formData.travelExpense) newErrors.travelExpense = "Please answer this question";
+      if (!formData.educationExpense) newErrors.educationExpense = "Please answer this question";
+      if (!formData.phoneExpense) newErrors.phoneExpense = "Please answer this question";
+      if (!formData.toolsExpense) newErrors.toolsExpense = "Please answer this question";
+      if (!formData.otherWorkExpenses) newErrors.otherWorkExpenses = "Please answer this question";
+      if (!formData.incomeProtectionInsurance) newErrors.incomeProtectionInsurance = "Please answer this question";
+      if (!formData.donations) newErrors.donations = "Please answer this question";
+      if (!formData.taxAgentFees) newErrors.taxAgentFees = "Please answer this question";
+      if (!formData.superContribution) newErrors.superContribution = "Please answer this question";
+      if (!formData.interestExpense) newErrors.interestExpense = "Please answer this question";
+      if (!formData.workFromHome) newErrors.workFromHome = "Please answer this question";
+    }
+    else if (step === 5) {
+      // Basic validation for Step 5
+      if (!formData.declarationAccepted || formData.declarationAccepted !== 'yes') {
+        newErrors.declarationAccepted = "You must accept the declaration to proceed";
+      }
+      if (!formData.signature) newErrors.signature = "Please sign the form";
+    }
+    
+    setErrors(newErrors);
+    
+    // If errors exist, scroll to the first error
+    if (Object.keys(newErrors).length > 0) {
+      const firstErrorField = Object.keys(newErrors)[0];
+      const element = document.getElementById(firstErrorField);
+      if (element) {
+        scrollToElement(element);
+      }
+      return false;
+    }
+    
+    return true;
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-    if (e.target.files && e.target.files[0]) {
-      setFormData(prev => ({
-        ...prev,
-        [fieldName]: e.target.files ? e.target.files[0] : null
-      }));
-      console.log(`File selected for ${fieldName}:`, e.target.files[0]);
-      
-      // Clear error when field is changed
-      if (errors[fieldName]) {
-        setErrors(prev => {
-          const updated = { ...prev };
-          delete updated[fieldName];
-          return updated;
+  const handleNext = () => {
+    if (currentStep < totalSteps) {
+      if (validateStep(currentStep)) {
+        setCurrentStep(currentStep + 1);
+        window.scrollTo(0, 0);
+        
+        // Save current step to localStorage
+        localStorage.setItem('taxFormStep', (currentStep + 1).toString());
+        
+        // Also save form data
+        const dataToSave = { ...formData };
+        // Remove file objects before serializing
+        Object.keys(dataToSave).forEach(key => {
+          if (dataToSave[key] instanceof File) {
+            delete dataToSave[key];
+          }
+        });
+        localStorage.setItem('taxFormData', JSON.stringify(dataToSave));
+      } else {
+        toast({
+          title: "Please correct the errors",
+          description: "There are validation errors that need to be fixed before proceeding.",
+          variant: "destructive",
         });
       }
     }
   };
-
-  const handleSaveProgress = async () => {
-    try {
-      setSaveSuccess(false);
-      // Create a JSON representation of the form data (without files)
-      const formDataForSaving = { ...formData };
+  
+  const handlePrevious = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+      window.scrollTo(0, 0);
       
-      // Remove file objects which can't be stringified
-      Object.keys(formDataForSaving).forEach(key => {
-        if (formDataForSaving[key] instanceof File) {
-          formDataForSaving[key] = null;
-        }
-      });
-      
-      // Add saved form ID if available
-      if (savedFormId) {
-        formDataForSaving.id = savedFormId;
-      }
-
-      // Send save request to backend
-      const response = await apiClient.post('/tax-solutions/save-progress', formDataForSaving);
-      
-      if (response.data && response.data.id) {
-        setSavedFormId(response.data.id);
-        setSaveSuccess(true);
-        toast.success('Progress saved successfully! You can resume later.');
-        
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          setSaveSuccess(false);
-        }, 3000);
-      }
-      
-    } catch (error) {
-      console.error('Error saving progress:', error);
-      toast.error('Failed to save progress');
+      // Save current step to localStorage
+      localStorage.setItem('taxFormStep', (currentStep - 1).toString());
     }
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Final validation check
-    if (!validateCurrentStep()) {
-      toast.error('Please correct the errors before submitting');
-      return;
-    }
-    
-    setSubmitting(true);
-
+  
+  const handleSaveProgress = () => {
     try {
-      // Create a FormData object to handle file uploads
-      const submissionData = new FormData();
-      
-      // Add all form fields to the FormData object
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value instanceof File) {
-          console.log(`Appending file for ${key}:`, value);
-          submissionData.append(key, value);
-        } else if (value !== null && value !== undefined) {
-          submissionData.append(key, value.toString());
+      // Save form data without file objects
+      const dataToSave = { ...formData };
+      Object.keys(dataToSave).forEach(key => {
+        if (dataToSave[key] instanceof File) {
+          delete dataToSave[key];
         }
       });
       
-      console.log('About to submit form data:');
+      localStorage.setItem('taxFormData', JSON.stringify(dataToSave));
+      localStorage.setItem('taxFormStep', currentStep.toString());
       
-      // Send data to backend API
-      const response = await apiClient.post('/tax-solutions/submit', submissionData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      toast({
+        title: "Progress saved",
+        description: "You can return to complete the form later.",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("Error saving form progress:", error);
+      toast({
+        title: "Failed to save progress",
+        description: "There was an error saving your progress. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleSubmit = () => {
+    if (validateStep(currentStep)) {
+      if (onSubmit) {
+        onSubmit(formData);
+      }
+      
+      toast({
+        title: "Form submitted successfully",
+        description: "Thank you for your submission. We will process your information shortly.",
+        variant: "success",
       });
       
-      console.log('Form submission response:', response.data);
+      // Clear form data from localStorage after successful submission
+      localStorage.removeItem('taxFormData');
+      localStorage.removeItem('taxFormStep');
       
-      toast.success(
-        <div className="flex items-center gap-2">
-          <Check className="h-5 w-5 text-green-500" />
-          <span>Tax form submitted successfully!</span>
-        </div>, 
-        {
-          autoClose: 5000,
-          style: { background: '#f0fdf4', borderLeft: '4px solid #22c55e' }
-        }
-      );
-      
-      // Reset form after successful submission
+      // Reset form to first step
+      setCurrentStep(1);
       setFormData({
-        // Reset to initial state
         taxpayerType: '',
         prefix: '',
         firstName: '',
@@ -424,221 +307,173 @@ const TaxSolutionsForm: React.FC = () => {
         suburb: '',
         state: '',
         postcode: '',
-        tfn: '',
-        abn: '',
-        gstRequired: '',
-        otherServices: '',
-        fiscalYear: '',
-        bankBsb: '',
-        bankAccountNo: '',
-        bankAccountName: '',
-        bankName: '',
-        updateAtoDetails: '',
-        identification: null,
-    
-        // Part 2: Tax Residency & Offsets
-        citizenStatus: '',
-        spouse: '',
-        dependents: '',
-        medicare: '',
-        privateHealth: '',
-        hecsDebt: '',
-        privateHealthFile: null,
-    
-        // Part 3: Taxable Income
-        salary: '',
-        interest: '',
-        dividends: '',
-        partnership: '',
-        personalServiceIncome: '',
-        soleTraderIncome: '',
-        soldInvestments: '',
-        soldRental: '',
-        foreignIncome: '',
-        rentalIncome: '',
-        sharingEconomyIncome: '',
-        pensionIncome: '',
-        employeeShareScheme: '',
-        otherIncome: '',
-    
-        // Part 4: Expenses
-        carExpense: '',
-        uniformExpense: '',
-        travelExpense: '',
-        educationExpense: '',
-        phoneExpense: '',
-        toolsExpense: '',
-        otherWorkExpenses: '',
-        incomeProtectionInsurance: '',
-        donations: '',
-        taxAgentFees: '',
-        superContribution: '',
-        interestExpense: '',
-        workFromHome: '',
-        
-        // Part 5: Declaration
+        taxFileNumber: '',
         signature: '',
-        supportingDocs: null
       });
-      
-      // Return to first step
-      setCurrentStep(1);
-      setSavedFormId(null);
-      
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      toast.error(
-        <div className="flex items-center gap-2">
-          <AlertCircle className="h-5 w-5 text-red-500" />
-          <span>Error submitting form. Please try again.</span>
-        </div>,
-        {
-          autoClose: 5000,
-          style: { background: '#fef2f2', borderLeft: '4px solid #ef4444' }
-        }
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Render the appropriate step component based on current step
-  const renderCurrentStep = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <FormStep1 
-            formData={formData} 
-            handleChange={handleChange} 
-            handleRadioChange={handleRadioChange} 
-            handleFileChange={handleFileChange} 
-          />
-        );
-      case 2:
-        return (
-          <FormStep2 
-            formData={formData} 
-            handleRadioChange={handleRadioChange} 
-            handleFileChange={handleFileChange} 
-          />
-        );
-      case 3:
-        return (
-          <FormStep3 
-            formData={formData} 
-            handleRadioChange={handleRadioChange} 
-          />
-        );
-      case 4:
-        return (
-          <FormStep4 
-            formData={formData} 
-            handleRadioChange={handleRadioChange}
-          />
-        );
-      case 5:
-        return (
-          <FormStep5 
-            formData={formData}
-            handleChange={handleChange}
-            handleFileChange={handleFileChange}
-            errors={errors}
-          />
-        );
-      default:
-        return null;
+    } else {
+      toast({
+        title: "Please correct the errors",
+        description: "There are validation errors that need to be fixed before submitting.",
+        variant: "destructive",
+      });
     }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-purple-700">Step {currentStep} of 5</h2>
-            <p className="text-sm text-gray-500">Complete all steps to submit your tax information</p>
-          </div>
-          
-          {currentStep < 5 && (
-            <div className="relative">
-              <Button 
-                variant="outline" 
-                onClick={handleSaveProgress} 
-                type="button"
-                className="border-purple-300 hover:bg-purple-50 flex items-center gap-2"
-              >
-                <Shield className="h-4 w-4" />
-                Save & Continue Later
-              </Button>
-              
-              {saveSuccess && (
-                <div className="absolute right-0 top-full mt-2 bg-green-50 text-green-700 text-sm p-2 rounded border border-green-200 flex items-center gap-1 z-10">
-                  <Check className="h-4 w-4" />
-                  Progress saved!
-                </div>
+    <div className="max-w-4xl mx-auto">
+      {/* Progress Bar */}
+      <div className="mb-6">
+        <div className="flex justify-between mb-2">
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
+            <div 
+              key={step} 
+              className={`relative flex items-center justify-center w-10 h-10 rounded-full border-2 ${
+                step < currentStep 
+                  ? 'bg-green-500 text-white border-green-500' 
+                  : step === currentStep 
+                    ? 'bg-blue-600 text-white border-blue-600' 
+                    : 'bg-white text-gray-400 border-gray-300'
+              } transition-colors z-10`}
+            >
+              {step < currentStep ? (
+                <CheckCircle className="w-5 h-5" />
+              ) : (
+                <span>{step}</span>
+              )}
+              {step !== totalSteps && (
+                <div 
+                  className={`absolute top-1/2 left-full w-full h-0.5 -translate-y-1/2 ${
+                    step < currentStep ? 'bg-green-500' : 'bg-gray-300'
+                  }`}
+                ></div>
               )}
             </div>
-          )}
+          ))}
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2.5">
-          <div 
-            className="bg-purple-600 h-2.5 rounded-full transition-all duration-300"
-            style={{ width: `${currentStep * 20}%` }}
-          ></div>
+        <div className="flex justify-between px-1 text-sm">
+          <div className="text-center w-20 -ml-5">Personal Info</div>
+          <div className="text-center w-20 -ml-5">Tax Residency</div>
+          <div className="text-center w-20 -ml-5">Income</div>
+          <div className="text-center w-20 -ml-5">Expenses</div>
+          <div className="text-center w-20 -ml-5">Declaration</div>
         </div>
       </div>
-
-      <form onSubmit={handleSubmit}>
-        {renderCurrentStep()}
-
-        <div className="flex justify-between mt-8">
-          {currentStep > 1 && (
-            <Button 
-              variant="outline" 
-              onClick={handlePrevious}
+      
+      {/* Form Steps */}
+      <div className="mb-8">
+        {currentStep === 1 && (
+          <FormStep1 
+            formData={formData} 
+            handleChange={handleChange} 
+            handleRadioChange={handleRadioChange} 
+            handleFileChange={handleFileChange}
+            errors={errors}
+          />
+        )}
+        
+        {currentStep === 2 && (
+          <FormStep2 
+            formData={formData} 
+            handleRadioChange={handleRadioChange} 
+            handleFileChange={handleFileChange}
+            errors={errors}
+          />
+        )}
+        
+        {currentStep === 3 && (
+          <FormStep3 
+            formData={formData} 
+            handleRadioChange={handleRadioChange}
+            errors={errors}
+          />
+        )}
+        
+        {currentStep === 4 && (
+          <FormStep4 
+            formData={formData} 
+            handleRadioChange={handleRadioChange}
+            errors={errors}
+          />
+        )}
+        
+        {currentStep === 5 && (
+          <FormStep5 
+            formData={formData} 
+            handleChange={handleChange} 
+            handleFileChange={handleFileChange}
+            handleRadioChange={handleRadioChange}
+            errors={errors}
+          />
+        )}
+      </div>
+      
+      {/* Navigation Buttons */}
+      <div className="flex justify-between pb-10">
+        <Button
+          type="button"
+          onClick={handlePrevious}
+          disabled={currentStep === 1}
+          variant="outline"
+          className="flex items-center"
+        >
+          <ChevronLeft className="w-4 h-4 mr-1" /> Previous
+        </Button>
+        
+        <div className="flex space-x-3">
+          <Button
+            type="button"
+            onClick={handleSaveProgress}
+            variant="secondary"
+            className="flex items-center"
+          >
+            <Save className="w-4 h-4 mr-1" /> Save & Continue Later
+          </Button>
+          
+          {currentStep < totalSteps ? (
+            <Button
               type="button"
-              className="border-purple-300 hover:bg-purple-50"
+              onClick={handleNext}
+              className="flex items-center bg-blue-600 hover:bg-blue-700"
             >
-              Previous
+              Next <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              className="flex items-center bg-green-600 hover:bg-green-700"
+            >
+              Submit <CheckCircle className="w-4 h-4 ml-1" />
             </Button>
           )}
-          
-          <div className="ml-auto">
-            {currentStep < 5 && (
-              <Button 
-                onClick={handleNext}
-                type="button"
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                Next
-              </Button>
-            )}
-            
-            {currentStep === 5 && (
-              <Button 
-                type="submit"
-                disabled={submitting}
-                className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4" /> 
-                    Submit Form
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
         </div>
-      </form>
+      </div>
+      
+      {/* Error Summary */}
+      {Object.keys(errors).length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+          <div className="flex items-center mb-2">
+            <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+            <h3 className="text-red-700 font-medium">Please correct the following errors:</h3>
+          </div>
+          <ul className="list-disc pl-10 text-red-600">
+            {Object.entries(errors).map(([field, message]) => (
+              <li key={field} className="text-sm">
+                <button 
+                  type="button"
+                  className="text-left underline"
+                  onClick={() => {
+                    const element = document.getElementById(field);
+                    if (element) scrollToElement(element);
+                  }}
+                >
+                  {message}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };

@@ -53,6 +53,13 @@ export function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
+export const scrollToElement = (element: HTMLElement) => {
+  element.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+  });
+};
+
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
   return `${text.substring(0, maxLength)}...`
