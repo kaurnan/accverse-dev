@@ -1,99 +1,62 @@
+
 import React from 'react';
 import { Label } from '../../ui/label';
+import { HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
 
 interface FormStep4SMSFProps {
   formData: {
-    bankAccountCount: string;
-    termDeposits: string;
-    shares: string;
-    shareRegistryCount: string;
-    srn: string;
+    capitalGains: string;
+    propertyCapitalGains: string;
+    rentalIncome: string;
+    trustDistribution: string;
+    partnershipDistribution: string;
+    dividendIncome: string;
+    investmentExpenses: string;
+    managementExpenses: string;
+    expenseInvoices: File | null;
     [key: string]: string | File | null;
   };
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   handleRadioChange: (name: string, value: string) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => void;
+  errors: Record<string, string>;
 }
 
-const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, handleRadioChange, handleFileChange }) => {
+const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, handleRadioChange, handleFileChange, errors }) => {
   return (
-    <div>
-      <div className="bg-blue-600 text-white p-4 rounded-t-lg mb-4">
-        <h2 className="text-xl font-semibold">Part 3: Assets Details</h2>
+    <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-purple-700">Part 4: Income and Expense Details</h2>
+        <p className="text-gray-600 mt-1">Please provide information about the fund's income and expenses</p>
       </div>
       
       <div className="space-y-6">
-        {/* Bank Accounts */}
-        <div className="border-b border-gray-200 pb-6">
-          <h3 className="text-lg font-semibold mb-4">Bank Accounts</h3>
-          
-          <div className="form-group mb-4">
-            <Label htmlFor="bankAccountCount" className="block text-gray-700 font-medium mb-2">HOW MANY BANK ACCOUNTS DOES THE SMSF HAVE?</Label>
-            <select
-              id="bankAccountCount"
-              name="bankAccountCount"
-              value={formData.bankAccountCount}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded px-3 py-2"
-            >
-              <option value="">Select number of accounts</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5+">5+</option>
-            </select>
+        {/* Capital Gains */}
+        <div className="form-group mb-4">
+          <div className="flex items-center mb-2">
+            <Label htmlFor="capitalGains" className="block text-gray-700 font-medium">Did the fund have any capital gains on its investments?</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 text-gray-400 cursor-help">
+                    <HelpCircle size={16} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Capital gains are profits from selling investments for more than their purchase price.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-          
-          <p className="text-sm text-gray-600 mb-2">
-            For each bank account please upload every page of bank statements, its cheque butts & deposit books or a list of the cheques written & deposits made, for the full financial year e.g. 01/07/20xx to 30/06/20xx.
-          </p>
-          <p className="text-sm text-gray-600 mb-2">
-            Please send us the PDF / scanned copy of the 30 June statement to confirm ownership by the SMSF and closing balance for audit file completeness.
-          </p>
-          
-          <div className="flex space-x-4 mb-4">
-            <label className="inline-flex items-center">
-              <input
-                type="radio"
-                className="form-radio text-blue-600"
-                name="bankStatements"
-                value="yes"
-              />
-              <span className="ml-2">Yes</span>
-            </label>
-            <label className="inline-flex items-center">
-              <input
-                type="radio"
-                className="form-radio text-blue-600"
-                name="bankStatements"
-                value="no"
-              />
-              <span className="ml-2">No</span>
-            </label>
-            <label className="inline-flex items-center">
-              <input
-                type="radio"
-                className="form-radio text-blue-600"
-                name="bankStatements"
-                value="na"
-              />
-              <span className="ml-2">N/A</span>
-            </label>
-          </div>
-          
-          <p className="text-sm text-gray-600 mb-2">
-            If there are Term Deposits, please send us all Term Deposit statements from 1 July to 30 June.
-          </p>
-          
           <div className="flex space-x-4">
             <label className="inline-flex items-center">
               <input
                 type="radio"
                 className="form-radio text-blue-600"
-                name="termDeposits"
-                checked={formData.termDeposits === 'yes'}
-                onChange={() => handleRadioChange('termDeposits', 'yes')}
+                name="capitalGains"
+                checked={formData.capitalGains === 'yes'}
+                onChange={() => handleRadioChange('capitalGains', 'yes')}
               />
               <span className="ml-2">Yes</span>
             </label>
@@ -101,41 +64,40 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <input
                 type="radio"
                 className="form-radio text-blue-600"
-                name="termDeposits"
-                checked={formData.termDeposits === 'no'}
-                onChange={() => handleRadioChange('termDeposits', 'no')}
+                name="capitalGains"
+                checked={formData.capitalGains === 'no'}
+                onChange={() => handleRadioChange('capitalGains', 'no')}
               />
               <span className="ml-2">No</span>
-            </label>
-            <label className="inline-flex items-center">
-              <input
-                type="radio"
-                className="form-radio text-blue-600"
-                name="termDeposits"
-                checked={formData.termDeposits === 'na'}
-                onChange={() => handleRadioChange('termDeposits', 'na')}
-              />
-              <span className="ml-2">N/A</span>
             </label>
           </div>
         </div>
 
-        {/* Listed Shares */}
-        <div className="border-b border-gray-200 pb-6">
-          <h3 className="text-lg font-semibold mb-4">Listed Shares & Listed Unit Trust Investments</h3>
-          
-          <p className="text-sm text-gray-600 mb-2">
-            Financial Year summary statement as at 30 June to confirm units held and market value as at 30 June.
-          </p>
-          
-          <div className="flex space-x-4 mb-4">
+        {/* Property Capital Gains */}
+        <div className="form-group mb-4">
+          <div className="flex items-center mb-2">
+            <Label htmlFor="propertyCapitalGains" className="block text-gray-700 font-medium">Did the fund sell any properties during the financial year?</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 text-gray-400 cursor-help">
+                    <HelpCircle size={16} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Select yes if your SMSF sold any real estate holdings during this financial year.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex space-x-4">
             <label className="inline-flex items-center">
               <input
                 type="radio"
                 className="form-radio text-blue-600"
-                name="shares"
-                checked={formData.shares === 'yes'}
-                onChange={() => handleRadioChange('shares', 'yes')}
+                name="propertyCapitalGains"
+                checked={formData.propertyCapitalGains === 'yes'}
+                onChange={() => handleRadioChange('propertyCapitalGains', 'yes')}
               />
               <span className="ml-2">Yes</span>
             </label>
@@ -143,35 +105,40 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <input
                 type="radio"
                 className="form-radio text-blue-600"
-                name="shares"
-                checked={formData.shares === 'no'}
-                onChange={() => handleRadioChange('shares', 'no')}
+                name="propertyCapitalGains"
+                checked={formData.propertyCapitalGains === 'no'}
+                onChange={() => handleRadioChange('propertyCapitalGains', 'no')}
               />
               <span className="ml-2">No</span>
             </label>
-            <label className="inline-flex items-center">
-              <input
-                type="radio"
-                className="form-radio text-blue-600"
-                name="shares"
-                checked={formData.shares === 'na'}
-                onChange={() => handleRadioChange('shares', 'na')}
-              />
-              <span className="ml-2">N/A</span>
-            </label>
           </div>
-          
-          <p className="text-sm text-gray-600 mb-2">
-            Transaction summary statement for the period from 1 July to 30 June.
-          </p>
-          
-          <div className="flex space-x-4 mb-4">
+        </div>
+
+        {/* Rental Income */}
+        <div className="form-group mb-4">
+          <div className="flex items-center mb-2">
+            <Label htmlFor="rentalIncome" className="block text-gray-700 font-medium">Did the fund receive any rental income?</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 text-gray-400 cursor-help">
+                    <HelpCircle size={16} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Select yes if your SMSF received income from renting properties it owns.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex space-x-4">
             <label className="inline-flex items-center">
               <input
                 type="radio"
                 className="form-radio text-blue-600"
-                name="shareTransactions"
-                value="yes"
+                name="rentalIncome"
+                checked={formData.rentalIncome === 'yes'}
+                onChange={() => handleRadioChange('rentalIncome', 'yes')}
               />
               <span className="ml-2">Yes</span>
             </label>
@@ -179,75 +146,250 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <input
                 type="radio"
                 className="form-radio text-blue-600"
-                name="shareTransactions"
-                value="no"
+                name="rentalIncome"
+                checked={formData.rentalIncome === 'no'}
+                onChange={() => handleRadioChange('rentalIncome', 'no')}
               />
               <span className="ml-2">No</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Trust Distribution */}
+        <div className="form-group mb-4">
+          <div className="flex items-center mb-2">
+            <Label htmlFor="trustDistribution" className="block text-gray-700 font-medium">Did the fund receive any trust distributions?</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 text-gray-400 cursor-help">
+                    <HelpCircle size={16} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Select yes if your SMSF received income from trust investments.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex space-x-4">
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600"
+                name="trustDistribution"
+                checked={formData.trustDistribution === 'yes'}
+                onChange={() => handleRadioChange('trustDistribution', 'yes')}
+              />
+              <span className="ml-2">Yes</span>
             </label>
             <label className="inline-flex items-center">
               <input
                 type="radio"
                 className="form-radio text-blue-600"
-                name="shareTransactions"
-                value="na"
+                name="trustDistribution"
+                checked={formData.trustDistribution === 'no'}
+                onChange={() => handleRadioChange('trustDistribution', 'no')}
               />
-              <span className="ml-2">N/A</span>
+              <span className="ml-2">No</span>
             </label>
           </div>
-          
-          <div className="form-group">
-            <Label htmlFor="shareRegistryCount" className="block text-gray-700 font-medium mb-2">HOW MANY SHARE REGISTRY DOES THE SMSF HAVE? PROVIDE SRN, HIN BELOW:</Label>
-            <select
-              id="shareRegistryCount"
-              name="shareRegistryCount"
-              value={formData.shareRegistryCount}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
-            >
-              <option value="">Select number of registries</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-              <option value="6">6</option>
-              <option value="none">None</option>
-            </select>
-            
-            {formData.shareRegistryCount && formData.shareRegistryCount !== 'none' && (
+        </div>
+
+        {/* Partnership Distribution */}
+        <div className="form-group mb-4">
+          <div className="flex items-center mb-2">
+            <Label htmlFor="partnershipDistribution" className="block text-gray-700 font-medium">Did the fund receive any partnership distributions?</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 text-gray-400 cursor-help">
+                    <HelpCircle size={16} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Select yes if your SMSF received income from business partnership interests.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex space-x-4">
+            <label className="inline-flex items-center">
               <input
-                type="text"
-                id="srn"
-                name="srn"
-                value={formData.srn}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded px-3 py-2"
-                placeholder="Enter SRN, HIN details"
+                type="radio"
+                className="form-radio text-blue-600"
+                name="partnershipDistribution"
+                checked={formData.partnershipDistribution === 'yes'}
+                onChange={() => handleRadioChange('partnershipDistribution', 'yes')}
               />
-            )}
+              <span className="ml-2">Yes</span>
+            </label>
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600"
+                name="partnershipDistribution"
+                checked={formData.partnershipDistribution === 'no'}
+                onChange={() => handleRadioChange('partnershipDistribution', 'no')}
+              />
+              <span className="ml-2">No</span>
+            </label>
           </div>
         </div>
 
-        {/* This section shows a condensed version of the remaining fields */}
-        <div className="border-b border-gray-200 pb-6">
-          <h3 className="text-lg font-semibold mb-4">Unlisted Shares and Unlisted Unit Trusts</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Please provide details about unlisted shares and unit trusts. Upload relevant documents as required.
-          </p>
+        {/* Dividend Income */}
+        <div className="form-group mb-4">
+          <div className="flex items-center mb-2">
+            <Label htmlFor="dividendIncome" className="block text-gray-700 font-medium">Did the fund receive dividend income?</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 text-gray-400 cursor-help">
+                    <HelpCircle size={16} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Select yes if your SMSF received dividends from shares it owns.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex space-x-4">
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600"
+                name="dividendIncome"
+                checked={formData.dividendIncome === 'yes'}
+                onChange={() => handleRadioChange('dividendIncome', 'yes')}
+              />
+              <span className="ml-2">Yes</span>
+            </label>
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600"
+                name="dividendIncome"
+                checked={formData.dividendIncome === 'no'}
+                onChange={() => handleRadioChange('dividendIncome', 'no')}
+              />
+              <span className="ml-2">No</span>
+            </label>
+          </div>
         </div>
 
-        <div className="border-b border-gray-200 pb-6">
-          <h3 className="text-lg font-semibold mb-4">Property</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Please provide details about any property investments. Upload property documents and agreements as required.
-          </p>
+        {/* Investment Expenses */}
+        <div className="form-group mb-4">
+          <div className="flex items-center mb-2">
+            <Label htmlFor="investmentExpenses" className="block text-gray-700 font-medium">Did the fund have any investment expenses?</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 text-gray-400 cursor-help">
+                    <HelpCircle size={16} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>These include costs directly related to generating investment income like brokerage fees.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex space-x-4">
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600"
+                name="investmentExpenses"
+                checked={formData.investmentExpenses === 'yes'}
+                onChange={() => handleRadioChange('investmentExpenses', 'yes')}
+              />
+              <span className="ml-2">Yes</span>
+            </label>
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600"
+                name="investmentExpenses"
+                checked={formData.investmentExpenses === 'no'}
+                onChange={() => handleRadioChange('investmentExpenses', 'no')}
+              />
+              <span className="ml-2">No</span>
+            </label>
+          </div>
         </div>
 
-        <div>
-          <h3 className="text-lg font-semibold mb-4">Other Investments</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Please provide details about any precious metals, collectibles, cryptocurrency, or other investments held by the SMSF.
+        {/* Management Expenses */}
+        <div className="form-group mb-4">
+          <div className="flex items-center mb-2">
+            <Label htmlFor="managementExpenses" className="block text-gray-700 font-medium">Did the fund incur management expenses?</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 text-gray-400 cursor-help">
+                    <HelpCircle size={16} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>These include accounting fees, audit fees, legal fees, and other administrative costs.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex space-x-4">
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600"
+                name="managementExpenses"
+                checked={formData.managementExpenses === 'yes'}
+                onChange={() => handleRadioChange('managementExpenses', 'yes')}
+              />
+              <span className="ml-2">Yes</span>
+            </label>
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600"
+                name="managementExpenses"
+                checked={formData.managementExpenses === 'no'}
+                onChange={() => handleRadioChange('managementExpenses', 'no')}
+              />
+              <span className="ml-2">No</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Expense Invoices */}
+        <div className="form-group">
+          <div className="flex items-center mb-2">
+            <Label htmlFor="expenseInvoices" className="block text-gray-700 font-medium">Upload Expense Invoices</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-2 text-gray-400 cursor-help">
+                    <HelpCircle size={16} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Upload copies of invoices for expenses claimed by the fund.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <p className="text-sm text-gray-500 mb-2">Upload invoices for expenses claimed by the fund.</p>
+          <input
+            type="file"
+            id="expenseInvoices"
+            name="expenseInvoices"
+            onChange={(e) => handleFileChange(e, 'expenseInvoices')}
+            className={`w-full border ${errors.expenseInvoices ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            {formData.expenseInvoices ? `Selected file: ${formData.expenseInvoices.name}` : 'No file selected'}
           </p>
+          {errors.expenseInvoices && <p className="text-red-500 text-sm mt-1">{errors.expenseInvoices}</p>}
         </div>
       </div>
     </div>

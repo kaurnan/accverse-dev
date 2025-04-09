@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { Button } from '../ui/button';
 import { toast } from 'react-toastify';
 import FormStep1SMSF from './smsf/FormStep1SMSF';
@@ -7,6 +8,7 @@ import FormStep3SMSF from './smsf/FormStep3SMSF';
 import FormStep4SMSF from './smsf/FormStep4SMSF';
 import FormStep5SMSF from './smsf/FormStep5SMSF';
 import apiClient from '../../services/api';
+import { Check, AlertCircle, ArrowRight, ArrowLeft, Save } from 'lucide-react';
 
 // Define the form data interface for SMSF
 interface SMSFFormData {
@@ -192,6 +194,10 @@ const SMSFTaxForm: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [savedFormId, setSavedFormId] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+
+  const formRef = useRef<HTMLDivElement>(null);
 
   const validateCurrentStep = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -227,6 +233,9 @@ const SMSFTaxForm: React.FC = () => {
         if (!formData.contactEmail) {
           newErrors.contactEmail = 'Contact email is required';
           isValid = false;
+        } else if (!/\S+@\S+\.\S+/.test(formData.contactEmail)) {
+          newErrors.contactEmail = 'Please enter a valid email address';
+          isValid = false;
         }
         if (!formData.contactPhone && !formData.contactMobile) {
           newErrors.contactPhone = 'At least one contact number is required';
@@ -234,6 +243,14 @@ const SMSFTaxForm: React.FC = () => {
         }
         break;
         
+      case 2:
+        // Validate Member Details
+        if (!formData.memberCount) {
+          newErrors.memberCount = 'Please select the number of members';
+          isValid = false;
+        }
+        break;
+
       case 5:
         // Validate Declaration
         if (!formData.signature) {
@@ -255,6 +272,15 @@ const SMSFTaxForm: React.FC = () => {
     return isValid;
   };
 
+  const scrollToFirstError = () => {
+    setTimeout(() => {
+      const firstErrorElement = document.querySelector('.border-red-500');
+      if (firstErrorElement) {
+        firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
+
   const handleNext = () => {
     if (validateCurrentStep()) {
       if (currentStep < 5) {
@@ -266,12 +292,17 @@ const SMSFTaxForm: React.FC = () => {
         }
       }
     } else {
-      toast.error("Please correct the errors before proceeding.");
-      // Scroll to the first error
-      const firstErrorField = document.querySelector('.border-red-500');
-      if (firstErrorField) {
-        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      toast.error(
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 text-red-500" />
+          <span>Please correct the errors before proceeding.</span>
+        </div>,
+        {
+          autoClose: 5000,
+          style: { background: '#fef2f2', borderLeft: '4px solid #ef4444' }
+        }
+      );
+      scrollToFirstError();
     }
   };
 
@@ -336,6 +367,8 @@ const SMSFTaxForm: React.FC = () => {
 
   const handleSaveProgress = async () => {
     try {
+      setSaveSuccess(false);
+      setSaveError(false);
       // Create a JSON representation of the form data (without files)
       const formDataForSaving = { ...formData };
       
@@ -352,16 +385,42 @@ const SMSFTaxForm: React.FC = () => {
       }
 
       // Send save request to backend
+      console.log('Saving form progress...');
       const response = await apiClient.post('/tax-solutions/save-progress', formDataForSaving);
       
       if (response.data && response.data.id) {
         setSavedFormId(response.data.id);
-        toast.success('Progress saved successfully!');
+        setSaveSuccess(true);
+        toast.success(
+          <div className="flex items-center gap-2">
+            <Check className="h-5 w-5 text-green-500" />
+            <span>Progress saved successfully!</span>
+          </div>,
+          {
+            autoClose: 3000,
+            style: { background: '#f0fdf4', borderLeft: '4px solid #22c55e' }
+          }
+        );
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          setSaveSuccess(false);
+        }, 3000);
       }
       
     } catch (error) {
       console.error('Error saving progress:', error);
-      toast.error('Failed to save progress');
+      setSaveError(true);
+      toast.error(
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 text-red-500" />
+          <span>Failed to save progress</span>
+        </div>,
+        {
+          autoClose: 5000,
+          style: { background: '#fef2f2', borderLeft: '4px solid #ef4444' }
+        }
+      );
     }
   };
 
@@ -371,9 +430,10 @@ const SMSFTaxForm: React.FC = () => {
 
     try {
       // Validation
-      if (!formData.smsfName || !formData.contactEmail || !formData.signature) {
+      if (!validateCurrentStep()) {
         toast.error('Please fill in all required fields');
         setSubmitting(false);
+        scrollToFirstError();
         return;
       }
 
@@ -400,7 +460,16 @@ const SMSFTaxForm: React.FC = () => {
       });
       
       console.log('SMSF form submission response:', response.data);
-      toast.success('SMSF tax form submitted successfully! We will contact you soon.');
+      toast.success(
+        <div className="flex items-center gap-2">
+          <Check className="h-5 w-5 text-green-500" />
+          <span>SMSF tax form submitted successfully! We will contact you soon.</span>
+        </div>,
+        {
+          autoClose: 5000,
+          style: { background: '#f0fdf4', borderLeft: '4px solid #22c55e' }
+        }
+      );
       
       // Reset form after successful submission
       setFormData({
@@ -485,7 +554,16 @@ const SMSFTaxForm: React.FC = () => {
       
     } catch (error) {
       console.error('Error submitting form:', error);
-      toast.error('Error submitting form. Please try again.');
+      toast.error(
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 text-red-500" />
+          <span>Error submitting form. Please try again.</span>
+        </div>,
+        {
+          autoClose: 5000,
+          style: { background: '#fef2f2', borderLeft: '4px solid #ef4444' }
+        }
+      );
     } finally {
       setSubmitting(false);
     }
@@ -548,19 +626,45 @@ const SMSFTaxForm: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-white rounded-lg shadow-md p-6" ref={formRef}>
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Step {currentStep} of 5</h2>
+          <div>
+            <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-purple-700">Step {currentStep} of 5</h2>
+            <p className="text-sm text-gray-500">Complete all steps to submit your SMSF information</p>
+          </div>
+          
           {currentStep < 5 && (
-            <Button variant="outline" onClick={handleSaveProgress} type="button">
-              Save & Continue Later
-            </Button>
+            <div className="relative">
+              <Button 
+                variant="outline" 
+                onClick={handleSaveProgress} 
+                type="button"
+                className="border-blue-300 hover:bg-blue-50 flex items-center gap-2"
+              >
+                <Save className="h-4 w-4" />
+                Save & Continue Later
+              </Button>
+              
+              {saveSuccess && (
+                <div className="absolute right-0 top-full mt-2 bg-green-50 text-green-700 text-sm p-2 rounded border border-green-200 flex items-center gap-1 z-10">
+                  <Check className="h-4 w-4" />
+                  Progress saved!
+                </div>
+              )}
+              
+              {saveError && (
+                <div className="absolute right-0 top-full mt-2 bg-red-50 text-red-700 text-sm p-2 rounded border border-red-200 flex items-center gap-1 z-10">
+                  <AlertCircle className="h-4 w-4" />
+                  Save failed. Try again.
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2.5">
           <div 
-            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all duration-300"
             style={{ width: `${currentStep * 20}%` }}
           ></div>
         </div>
@@ -575,7 +679,9 @@ const SMSFTaxForm: React.FC = () => {
               variant="outline" 
               onClick={handlePrevious}
               type="button"
+              className="border-blue-300 hover:bg-blue-50 flex items-center gap-2"
             >
+              <ArrowLeft className="h-4 w-4" />
               Previous
             </Button>
           )}
@@ -585,8 +691,10 @@ const SMSFTaxForm: React.FC = () => {
               <Button 
                 onClick={handleNext}
                 type="button"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex items-center gap-2"
               >
                 Next
+                <ArrowRight className="h-4 w-4" />
               </Button>
             )}
             
@@ -594,9 +702,22 @@ const SMSFTaxForm: React.FC = () => {
               <Button 
                 type="submit"
                 disabled={submitting}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
               >
-                {submitting ? 'Submitting...' : 'Submit Form'}
+                {submitting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Submit Form
+                  </>
+                )}
               </Button>
             )}
           </div>
