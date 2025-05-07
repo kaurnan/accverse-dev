@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/card';
@@ -25,13 +26,13 @@ const TaxFormSelectPage = () => {
       description: 'Complete this form if you have a self-managed superannuation fund requiring compliance services.',
       path: '/tax-solutions/smsf'
     },
-    {
-      id: 'engagement',
-      title: 'ENGAGEMENT LETTER',
-      subtitle: 'For All Business Clients',
-      description: 'Required engagement letter for all business clients to formalize our services.',
-      path: '/tax-solutions/engagement'
-    },
+    // {
+    //   id: 'engagement',
+    //   title: 'ENGAGEMENT LETTER',
+    //   subtitle: 'For All Business Clients',
+    //   description: 'Required engagement letter for all business clients to formalize our services.',
+    //   path: '/tax-solutions/engagement'
+    // },
     {
       id: 'smsf-establishment',
       title: 'SMSF ESTABLISHMENT FORM',

@@ -4,6 +4,11 @@ import TaxSolutionsForm from '../components/TaxSolutionsForm';
 import { Button } from '../components/ui/button';
 
 const TaxSolutionsPage = () => {
+  const handleFormSubmit = (data: any) => {
+    console.log("Form submitted with data:", data);
+    // No need to do anything here as the form component handles the redirect
+  };
+
   return (
     <div className="container my-8 max-w-4xl mx-auto px-4">
       <div className="mb-4">
@@ -69,7 +74,7 @@ const TaxSolutionsPage = () => {
             </div>
         </div>
         
-        <TaxSolutionsForm />
+        <TaxSolutionsForm onSubmit={handleFormSubmit} formType="individual" />
       </div>
     </div>
   );

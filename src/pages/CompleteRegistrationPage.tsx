@@ -7,6 +7,9 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 import { completeGoogleRegistration } from "../services/api"
 import { useAuth } from "../components/AuthContext"
+import Recaptcha from "../components/ui/recaptcha"
+import { getRecaptchaSiteKey } from "../utils/captcha-validation"
+import { resetWidgetByContainerId } from "../utils/recaptcha-manager"
 
 interface GoogleAuthData {
   firebase_uid: string
@@ -15,11 +18,25 @@ interface GoogleAuthData {
   name: string | null
 }
 
+interface FormErrors {
+  phone?: string
+  city?: string
+  state?: string
+  zipCode?: string
+  address?: string
+}
+
+const onlyNumbers = (value: string) => /^[0-9]*$/.test(value)
+const onlyLetters = (value: string) => /^[a-zA-Z\s]*$/.test(value)
+const onlyZip = (value: string) => /^[0-9\-]*$/.test(value) // allow dash for ZIP+4
+
 const CompleteRegistrationPage = () => {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false) 
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [googleData, setGoogleData] = useState<GoogleAuthData | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaError, setCaptchaError] = useState(false)
   const [formData, setFormData] = useState({
     phone: "",
     address: "",
@@ -29,6 +46,7 @@ const CompleteRegistrationPage = () => {
     password: "",
     confirmPassword: "",
   })
+  const [formErrors, setFormErrors] = useState<FormErrors>({})
   const navigate = useNavigate()
   const { login } = useAuth()
 
@@ -51,9 +69,95 @@ const CompleteRegistrationPage = () => {
     }
   }, [navigate])
 
+  // Reset CAPTCHA when component unmounts
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && document.getElementById("complete-registration-recaptcha")) {
+        try {
+          resetWidgetByContainerId("complete-registration-recaptcha")
+        } catch (error) {
+          console.error("Error resetting reCAPTCHA:", error)
+        }
+      }
+    }
+  }, [])
+
+  const validateField = (name: string, value: string): string | undefined => {
+    switch (name) {
+      case "phone":
+        if (!onlyNumbers(value)) return "Phone number must contain numbers only"
+        if (value.length < 7) return "Phone number is too short"
+        break
+      case "city":
+        if (!onlyLetters(value)) return "City must contain letters only"
+        break
+      case "state":
+        if (!onlyLetters(value)) return "State must contain letters only"
+        break
+      case "zipCode":
+        if (!onlyZip(value)) return "ZIP code must be numbers only"
+        if (value.length < 5) return "ZIP code is too short"
+        break
+      case "address":
+        if (value.trim().length === 0) return "Address is required"
+        break
+      default:
+        break
+    }
+    return undefined
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // Restrict input at the field level for phone, city, state, zipCode
+    let newValue = value
+    let error: string | undefined
+
+    if (name === "phone") {
+      // Only allow numbers
+      newValue = value.replace(/[^0-9]/g, "")
+      error = validateField(name, newValue)
+    } else if (name === "city" || name === "state") {
+      // Only allow letters and spaces
+      newValue = value.replace(/[^a-zA-Z\s]/g, "")
+      error = validateField(name, newValue)
+    } else if (name === "zipCode") {
+      // Only allow numbers and dash
+      newValue = value.replace(/[^0-9\-]/g, "")
+      error = validateField(name, newValue)
+    } else if (name === "address") {
+      error = validateField(name, newValue)
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: newValue }))
+
+    setFormErrors((prev) => ({
+      ...prev,
+      [name]: error,
+    }))
+  }
+
+  const handleCaptchaVerify = (token: string) => {
+    setCaptchaToken(token)
+    setCaptchaError(false)
+  }
+
+  const handleCaptchaError = () => {
+    setCaptchaError(true)
+    setCaptchaToken(null)
+  }
+
+  const validateAllFields = () => {
+    const errors: FormErrors = {}
+    errors.phone = validateField("phone", formData.phone)
+    errors.city = validateField("city", formData.city)
+    errors.state = validateField("state", formData.state)
+    errors.zipCode = validateField("zipCode", formData.zipCode)
+    errors.address = validateField("address", formData.address)
+    setFormErrors(errors)
+    // Return true if no errors
+    return Object.values(errors).every((v) => !v)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,6 +178,17 @@ const CompleteRegistrationPage = () => {
       return
     }
 
+    if (!captchaToken) {
+      setCaptchaError(true)
+      toast.error("Please complete the CAPTCHA verification")
+      return
+    }
+
+    if (!validateAllFields()) {
+      toast.error("Please correct the errors in the form")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -83,7 +198,8 @@ const CompleteRegistrationPage = () => {
         firebase_token: googleData.firebase_token,
         email: googleData.email || "",
         name: googleData.name || "",
-        password: formData.password,
+        // password: formData.password,
+        captchaToken,
         ...formData,
       })
 
@@ -102,7 +218,16 @@ const CompleteRegistrationPage = () => {
     } catch (error) {
       console.error("Registration completion error:", error)
       const errorMessage = error instanceof Error ? error.message : "Failed to complete registration"
-      toast.error(errorMessage)
+
+      if (errorMessage.includes("CAPTCHA")) {
+        toast.error("CAPTCHA verification failed. Please try again.")
+        setCaptchaError(true)
+        // Reset the CAPTCHA widget
+        resetWidgetByContainerId("complete-registration-recaptcha")
+        setCaptchaToken(null)
+      } else {
+        toast.error(errorMessage)
+      }
     } finally {
       setLoading(false)
     }
@@ -143,59 +268,65 @@ const CompleteRegistrationPage = () => {
                   required
                   value={formData.phone}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className={`appearance-none block w-full px-3 py-2 border ${formErrors.phone ? "border-red-500" : "border-gray-300"} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={15}
                 />
+                {formErrors.phone && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.phone}</p>
+                )}
               </div>
             </div>
 
             <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                    Password
-                </label>
-                <div className="relative mt-1">
-                    <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 
-                    focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                    />
-                    <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                    >
-                    {showPassword ? "🙈" : "👁️"}
-                    </button>
-                </div>
-                </div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <div className="relative mt-1">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 
+                  focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
+            </div>
 
-                <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                    Confirm Password
-                </label>
-                <div className="relative mt-1">
-                    <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 
-                    focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                    />
-                    <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                    {showConfirmPassword ? "🙈" : "👁️"}
-                    </button>
-                </div>
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
+              <div className="relative mt-1">
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 
+                  focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -210,8 +341,11 @@ const CompleteRegistrationPage = () => {
                   required
                   value={formData.address}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className={`appearance-none block w-full px-3 py-2 border ${formErrors.address ? "border-red-500" : "border-gray-300"} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                 />
+                {formErrors.address && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.address}</p>
+                )}
               </div>
             </div>
 
@@ -228,8 +362,11 @@ const CompleteRegistrationPage = () => {
                     required
                     value={formData.city}
                     onChange={handleChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className={`appearance-none block w-full px-3 py-2 border ${formErrors.city ? "border-red-500" : "border-gray-300"} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                   />
+                  {formErrors.city && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.city}</p>
+                  )}
                 </div>
               </div>
 
@@ -245,8 +382,11 @@ const CompleteRegistrationPage = () => {
                     required
                     value={formData.state}
                     onChange={handleChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className={`appearance-none block w-full px-3 py-2 border ${formErrors.state ? "border-red-500" : "border-gray-300"} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                   />
+                  {formErrors.state && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.state}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -263,52 +403,39 @@ const CompleteRegistrationPage = () => {
                   required
                   value={formData.zipCode}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className={`appearance-none block w-full px-3 py-2 border ${formErrors.zipCode ? "border-red-500" : "border-gray-300"} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  inputMode="numeric"
+                  pattern="[0-9\-]*"
+                  maxLength={10}
                 />
+                {formErrors.zipCode && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.zipCode}</p>
+                )}
               </div>
             </div>
 
-            {/* <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            {/* Google reCAPTCHA */}
+            <div className="w-full">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Security Verification</label>
+              <div className="flex justify-center w-full">
+                <Recaptcha
+                  siteKey={getRecaptchaSiteKey()}
+                  onVerify={handleCaptchaVerify}
+                  onError={handleCaptchaError}
+                  theme="light"
+                  className={captchaError ? "border border-red-500 rounded-md p-1" : ""}
+                  id="complete-registration-recaptcha"
                 />
               </div>
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-              {formData.password !== formData.confirmPassword && formData.confirmPassword && (
-                <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
+              {captchaError && (
+                <p className="mt-1 text-xs text-red-600 text-center">Please complete the security verification</p>
               )}
-            </div> */}
+            </div>
 
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !captchaToken}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {loading ? (
@@ -345,4 +472,3 @@ const CompleteRegistrationPage = () => {
 }
 
 export default CompleteRegistrationPage
-

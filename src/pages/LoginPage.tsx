@@ -1,9 +1,22 @@
-import React from 'react';
-// import { Link } from 'react-router-dom';
+
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Calculator, Shield } from 'lucide-react';
 import LoginForm from '../components/LoginForm';
 
 const LoginPage = () => {
+  const location = useLocation();
+  const [returnPath, setReturnPath] = useState<string | null>(null);
+  
+  useEffect(() => {
+    // Extract the returnTo parameter from the URL query string
+    const params = new URLSearchParams(location.search);
+    const returnTo = params.get('returnTo');
+    if (returnTo) {
+      setReturnPath(returnTo);
+    }
+  }, [location]);
+
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center">
       <div className="max-w-7xl mx-auto">
@@ -57,6 +70,14 @@ const LoginPage = () => {
                     </div>
                   </div>
                 </div>
+                
+                {returnPath && (
+                  <div className="mt-6 bg-blue-800 p-4 rounded-lg">
+                    <p className="text-blue-100">
+                      You'll need to sign in to access the tax form you selected.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -66,7 +87,7 @@ const LoginPage = () => {
               <div className="text-center mb-8">
                 <h2 className="text-3xl font-bold text-gray-900">Sign in to your account</h2>
                 <p className="mt-2 text-gray-600">
-                  Access your documents, messages, and account information
+                  {returnPath ? 'Sign in to continue to the tax form' : 'Access your documents, messages, and account information'}
                 </p>
               </div>
               

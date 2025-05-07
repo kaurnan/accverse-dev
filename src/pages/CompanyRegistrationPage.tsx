@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import CompanyRegistrationForm from '../components/tax-form/CompanyRegistrationForm';
@@ -55,7 +54,7 @@ const CompanyRegistrationPage = () => {
           </div>
         </div>
         
-        <CompanyRegistrationForm />
+        <CompanyRegistrationForm formType="company-registration" />
       </div>
     </div>
   );
