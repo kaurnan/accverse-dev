@@ -9,10 +9,15 @@ for backend:
 Make sure your .env file in the backend directory contains:
 
 VITE_API_URL=http://localhost:5000/api
+
 FLASK_DEBUG=False
+
 SECRET_KEY=dev-secret-key-change-in-production
+
 REQUIRE_CAPTCHA=True
+
 RECAPTCHA_SECRET_KEY=
+
 RECAPTCHA_SITE_KEY=
 
 Database
