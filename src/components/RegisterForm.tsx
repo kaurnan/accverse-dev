@@ -1,11 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 import { Eye, EyeOff, CheckCircle, ArrowRight, ArrowLeft, Clock } from "lucide-react"
 import * as api from "../services/api"
+import Recaptcha from "./ui/recaptcha"
+import { getRecaptchaSiteKey } from "../utils/captcha-validation"
+import { resetWidgetByContainerId } from "../utils/recaptcha-manager"
+
+// Add mergeRefs utility
+const mergeRefs = (...refs: any[]) => (value: any) => {
+  refs.forEach((ref) => {
+    if (typeof ref === 'function') {
+      ref(value)
+    } else if (ref != null) {
+      ref.current = value
+    }
+  })
+}
 
 interface RegisterFormData {
   fullName: string
@@ -18,15 +32,38 @@ interface RegisterFormData {
   state?: string
   zipCode?: string
   agreeToTerms: boolean
+  captchaToken?: string
 }
 
 const RegisterForm = () => {
+  // Refs for all fields that can have errors
+  const fieldRefs = {
+    email: useRef<HTMLInputElement>(null),
+    fullName: useRef<HTMLInputElement>(null),
+    phone: useRef<HTMLInputElement>(null),
+    password: useRef<HTMLInputElement>(null),
+    confirmPassword: useRef<HTMLInputElement>(null),
+    address: useRef<HTMLInputElement>(null),
+    state: useRef<HTMLInputElement>(null),
+    city: useRef<HTMLInputElement>(null),
+    zipCode: useRef<HTMLInputElement>(null),
+    agreeToTerms: useRef<HTMLInputElement>(null),
+  }
+
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterFormData>()
+    setError,
+    clearErrors,
+    trigger,
+    getValues,
+  } = useForm<RegisterFormData>({
+    mode: "onChange",
+    reValidateMode: "onChange",
+  })
   const navigate = useNavigate()
 
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false)
@@ -39,8 +76,25 @@ const RegisterForm = () => {
   const [emailError, setEmailError] = useState<string | null>(null)
   const [otpTimer, setOtpTimer] = useState(0)
   const [canResendOtp, setCanResendOtp] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaError, setCaptchaError] = useState(false)
 
-  // OTP timer effect
+  // Track which field is currently focused due to error
+  const [focusedErrorField, setFocusedErrorField] = useState<string | null>(null)
+
+  // Reset CAPTCHA when component unmounts
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && document.getElementById("register-recaptcha")) {
+        try {
+          resetWidgetByContainerId("register-recaptcha")
+        } catch (error) {
+          console.error("Error resetting reCAPTCHA:", error)
+        }
+      }
+    }
+  }, [])
+
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
 
@@ -57,7 +111,51 @@ const RegisterForm = () => {
     }
   }, [otpTimer, emailToVerify])
 
-  // Format timer to MM:SS
+  // Focus the first error field when errors change
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      // Find the first error field in the order of the form
+      const order = [
+        "email",
+        "fullName",
+        "phone",
+        "password",
+        "confirmPassword",
+        "address",
+        "state",
+        "city",
+        "zipCode",
+        "agreeToTerms",
+      ]
+      for (const key of order) {
+        if (errors[key as keyof RegisterFormData]) {
+          setFocusedErrorField(key)
+          // Focus the field
+          if (fieldRefs[key as keyof typeof fieldRefs]?.current) {
+            fieldRefs[key as keyof typeof fieldRefs].current!.focus()
+          }
+          break
+        }
+      }
+    } else {
+      setFocusedErrorField(null)
+    }
+  }, [errors])
+
+  // When a field is corrected, clear the focused error field if it was that field
+  useEffect(() => {
+    if (focusedErrorField) {
+      // If the error for the focused field is gone, clear the focus
+      if (!errors[focusedErrorField as keyof RegisterFormData]) {
+        setFocusedErrorField(null)
+      }
+    }
+  }, [errors, focusedErrorField])
+
+  // Fix: keep email value in sync with input (for defaultValue and watch)
+  // This ensures that after typing, the latest value is available for validation
+  const emailValue = watch("email") || ""
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -67,14 +165,20 @@ const RegisterForm = () => {
   const onSubmit = async (data: RegisterFormData) => {
     if (!emailVerified) {
       toast.error("Please verify your email before registering")
+      setFocusedErrorField("email")
+      if (fieldRefs.email.current) fieldRefs.email.current.focus()
+      return
+    }
+
+    if (!captchaToken && currentStep === 3) {
+      setCaptchaError(true)
+      toast.error("Please complete the CAPTCHA verification")
       return
     }
 
     try {
-      // Remove confirmPassword and agreeToTerms before sending to API
       const { confirmPassword, agreeToTerms, ...userData } = data
 
-      // Map fullName to name for API
       const apiData = {
         name: userData.fullName,
         email: userData.email,
@@ -84,21 +188,40 @@ const RegisterForm = () => {
         city: userData.city,
         state: userData.state,
         zipCode: userData.zipCode,
+        captchaToken: captchaToken || undefined,
       }
 
-      // Register the user
-      // await api.authService.register(apiData)
-      const response =await api.register(apiData)
+      const response = await api.register(apiData)
       toast.success("Registration successful! You can now log in.")
 
-      // Redirect to login page after successful registration
       navigate("/login")
     } catch (error) {
       console.error("Registration error:", error)
-      // Check if the error is about duplicate email
+
       if (error instanceof Error && error.message.includes("already registered")) {
         toast.error("This email is already registered. Please use a different email or login.")
         setEmailError("This email is already registered. Please use a different email or login.")
+        setFocusedErrorField("email")
+        if (fieldRefs.email.current) fieldRefs.email.current.focus()
+      } else if (error instanceof Error && error.message.includes("CAPTCHA")) {
+        toast.error(error.message)
+        setCaptchaError(true)
+        // Reset the CAPTCHA widget
+        resetWidgetByContainerId("register-recaptcha")
+        setCaptchaToken(null)
+      } else if (
+        typeof error === "object" && error !== null &&
+        "response" in error && typeof (error as any).response === "object" && (error as any).response !== null &&
+        "data" in (error as any).response && typeof (error as any).response.data === "object" && (error as any).response.data !== null &&
+        "error" in (error as any).response.data
+      ) {
+        toast.error((error as any).response.data.error)
+
+        if ((error as any).response.data.error.includes("CAPTCHA")) {
+          setCaptchaError(true)
+          resetWidgetByContainerId("register-recaptcha")
+          setCaptchaToken(null)
+        }
       } else {
         toast.error("Registration failed. Please try again.")
       }
@@ -106,14 +229,27 @@ const RegisterForm = () => {
   }
 
   const handleVerifyEmail = async () => {
-    const email = watch("email")
+    // Use the latest value from the input, not from a possibly stale watch
+    const email = (fieldRefs.email.current && fieldRefs.email.current.value) || watch("email") || ""
+    // Email format validation
+    const emailPattern = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i
     if (!email) {
-      toast.error("Please enter an email address first")
+      setError("email", { type: "manual", message: "Email is required" })
+      setFocusedErrorField("email")
+      if (fieldRefs.email.current) fieldRefs.email.current.focus()
+      toast.error("Please enter your email address")
       return
     }
-
-    // Reset any previous email errors
+    if (!emailPattern.test(email)) {
+      setError("email", { type: "manual", message: "Invalid email address" })
+      setFocusedErrorField("email")
+      if (fieldRefs.email.current) fieldRefs.email.current.focus()
+      toast.error("Please enter a valid email address")
+      return
+    }
+    clearErrors("email")
     setEmailError(null)
+    setValue("email", email) // Ensure form state is updated
 
     try {
       setIsVerifyingEmail(true)
@@ -121,7 +257,6 @@ const RegisterForm = () => {
       await api.sendVerificationOtp(email)
       toast.success("Verification code sent to your email")
 
-      // Start OTP timer (5 minutes)
       setOtpTimer(300)
       setCanResendOtp(false)
     } catch (error) {
@@ -130,6 +265,9 @@ const RegisterForm = () => {
         const errorMsg = "This email is already registered. Please use a different email or login."
         toast.error(errorMsg)
         setEmailError(errorMsg)
+        setError("email", { type: "manual", message: errorMsg })
+        setFocusedErrorField("email")
+        if (fieldRefs.email.current) fieldRefs.email.current.focus()
       } else {
         toast.error("Failed to send verification code. Please try again.")
       }
@@ -147,7 +285,6 @@ const RegisterForm = () => {
     newOtp[index] = value
     setOtp(newOtp)
 
-    // Auto-focus next input
     if (value && index < 5) {
       const nextInput = document.getElementById(`otp-${index + 1}`)
       if (nextInput) {
@@ -164,11 +301,9 @@ const RegisterForm = () => {
     }
 
     try {
-      // await api.authService.verifyOtp(emailToVerify, otpValue)
       const response = await api.verifyOtp(emailToVerify, otpValue)
       setEmailVerified(true)
       toast.success("Email verified successfully!")
-      // Move to next step after verification
       setCurrentStep(2)
     } catch (error) {
       console.error("Failed to verify code:", error)
@@ -176,37 +311,123 @@ const RegisterForm = () => {
     }
   }
 
-  const validateStep = (step: number) => {
+  // Validate all fields in the current step, focus first error, and show error reason
+  const validateStep = async (step: number) => {
     if (step === 1) {
-      return emailVerified
+      // Use the latest value from the input, not from a possibly stale watch
+      const email = (fieldRefs.email.current && fieldRefs.email.current.value) || watch("email") || ""
+      if (!email) {
+        setError("email", { type: "manual", message: "Email is required" })
+        setFocusedErrorField("email")
+        if (fieldRefs.email.current) fieldRefs.email.current.focus()
+        toast.error("Please enter your email address")
+        return false
+      }
+      if (!emailVerified) {
+        setError("email", { type: "manual", message: "Please verify your email before proceeding" })
+        setFocusedErrorField("email")
+        if (fieldRefs.email.current) fieldRefs.email.current.focus()
+        toast.error("Please verify your email before proceeding")
+        return false
+      }
+      return true
     }
 
     if (step === 2) {
-      const password = watch("password")
-      const confirmPassword = watch("confirmPassword")
-      const fullName = watch("fullName")
-      const agreeToTerms = watch("agreeToTerms")
+      // Validate all fields in step 2
+      const valid = await trigger([
+        "fullName",
+        "phone",
+        "password",
+        "confirmPassword",
+        "address",
+        "state",
+        "city",
+        "zipCode",
+        "agreeToTerms",
+      ])
+      if (!valid) {
+        // Focus first error field (handled by useEffect)
+        toast.error("Please fill in all required fields correctly")
+        return false
+      }
+      // Also check password match
+      const password = getValues("password")
+      const confirmPassword = getValues("confirmPassword")
+      if (password !== confirmPassword) {
+        setError("confirmPassword", { type: "manual", message: "Passwords do not match" })
+        setFocusedErrorField("confirmPassword")
+        if (fieldRefs.confirmPassword.current) fieldRefs.confirmPassword.current.focus()
+        toast.error("Passwords do not match")
+        return false
+      }
+      return true
+    }
 
-      return password && confirmPassword && password === confirmPassword && fullName && agreeToTerms
+    if (step === 3) {
+      if (!captchaToken) {
+        setCaptchaError(true)
+        toast.error("Please complete the CAPTCHA verification")
+        return false
+      }
+      return true
     }
 
     return true
   }
 
-  const goToNextStep = () => {
-    if (validateStep(currentStep)) {
+  const goToNextStep = async () => {
+    const valid = await validateStep(currentStep)
+    if (valid) {
       setCurrentStep(currentStep + 1)
-    } else {
-      if (currentStep === 1 && !emailVerified) {
-        toast.error("Please verify your email before proceeding")
-      } else if (currentStep === 2) {
-        toast.error("Please fill in all required fields correctly")
-      }
     }
   }
 
   const goToPreviousStep = () => {
     setCurrentStep(currentStep - 1)
+  }
+
+  const handleCaptchaVerify = (token: string) => {
+    setCaptchaToken(token)
+    setCaptchaError(false)
+  }
+
+  const handleCaptchaError = () => {
+    setCaptchaError(true)
+    setCaptchaToken(null)
+  }
+
+  // Helper for restricting input to numbers only for phone
+  const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, spaces, +, -, (, )
+    const value = e.target.value.replace(/[^0-9+\-\s()]/g, "")
+    e.target.value = value
+  }
+
+  // Helper for restricting input to letters and spaces only for full name
+  const handleFullNameInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow letters (including unicode), spaces, apostrophes, and hyphens
+    const value = e.target.value.replace(/[^A-Za-zÀ-ÿ' -]/g, "")
+    e.target.value = value
+  }
+
+  // Helper for restricting input to letters and spaces only for city and state
+  const handleAlphaInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^A-Za-zÀ-ÿ' -]/g, "")
+    e.target.value = value
+  }
+
+  // Helper for restricting input to numbers and dash for zip code
+  const handleZipInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9-]/g, "")
+    e.target.value = value
+  }
+
+  // --- NEW: Generic onChange handler to clear error for any field ---
+  const handleFieldChange = (field: keyof RegisterFormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (errors[field]) clearErrors(field)
+    // For controlled fields, also update value
+    setValue(field, e.target.value)
   }
 
   return (
@@ -217,7 +438,6 @@ const RegisterForm = () => {
       </div>
 
       <div className="px-6 py-4">
-        {/* Progress indicator */}
         <div className="mb-6">
           <div className="flex justify-between text-xs mb-2">
             <div className={`font-medium ${currentStep >= 1 ? "text-blue-600" : "text-gray-400"}`}>
@@ -236,7 +456,7 @@ const RegisterForm = () => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
           {currentStep === 1 && (
             <div>
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Step 1: Verify Your Email</h3>
@@ -248,19 +468,29 @@ const RegisterForm = () => {
                 <div className="flex">
                   <input
                     id="email"
+                    name="email"
                     type="email"
+                    autoComplete="email"
+                    value={emailValue}
+                    onChange={e => {
+                      setValue("email", e.target.value)
+                      if (errors.email) clearErrors("email")
+                      setEmailError(null)
+                    }}
                     className={`w-full px-3 py-2 text-sm border rounded-l-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       errors.email || emailError ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="john@example.com"
                     disabled={emailVerified}
-                    {...register("email", {
-                      required: "Email is required",
+                    {...(register("email", {
+                      // required: "Email is required",
                       pattern: {
                         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                         message: "Invalid email address",
                       },
-                    })}
+                      // Remove onChange from register, handled above
+                    }), { ref: undefined })}
+                    ref={mergeRefs(fieldRefs.email, register("email").ref)}
                   />
                   <button
                     type="button"
@@ -273,7 +503,11 @@ const RegisterForm = () => {
                     {isVerifyingEmail ? "Sending..." : emailVerified ? "Verified" : "Verify Email"}
                   </button>
                 </div>
-                {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
+                {errors.email && (
+                  <p className="mt-1 text-xs text-red-600" id="email-error">
+                    {errors.email.message}
+                  </p>
+                )}
                 {emailError && <p className="mt-1 text-xs text-red-600">{emailError}</p>}
 
                 {emailToVerify && !emailVerified && (
@@ -300,7 +534,6 @@ const RegisterForm = () => {
                           onChange={(e) => handleOtpChange(index, e.target.value)}
                           className="w-10 h-10 text-center border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           onKeyDown={(e) => {
-                            // Handle backspace
                             if (e.key === "Backspace" && !digit && index > 0) {
                               const prevInput = document.getElementById(`otp-${index - 1}`)
                               if (prevInput) {
@@ -371,13 +604,21 @@ const RegisterForm = () => {
                       errors.fullName ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="John Doe"
-                    {...register("fullName", {
+                    {...(register("fullName", {
                       required: "Full name is required",
                       minLength: {
                         value: 2,
                         message: "Name must be at least 2 characters",
                       },
-                    })}
+                      pattern: {
+                        value: /^[A-Za-zÀ-ÿ' -]+$/,
+                        message: "Full name must contain only letters and spaces",
+                      },
+                      // Remove onChange from register, use generic handler below
+                    }), { ref: undefined })}
+                    ref={mergeRefs(fieldRefs.fullName, register("fullName").ref)}
+                    onInput={handleFullNameInput}
+                    onChange={handleFieldChange("fullName")}
                   />
                   {errors.fullName && <p className="mt-1 text-xs text-red-600">{errors.fullName.message}</p>}
                 </div>
@@ -389,16 +630,21 @@ const RegisterForm = () => {
                   <input
                     id="phone"
                     type="text"
+                    inputMode="tel"
                     className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       errors.phone ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="(123) 456-7890"
-                    {...register("phone", {
+                    {...(register("phone", {
                       pattern: {
-                        value: /^[\d\s+\-$$$$]{10,15}$/,
-                        message: "Please enter a valid phone number",
+                        value: /^[0-9+\-\s()]{10,15}$/,
+                        message: "Please enter a valid phone number (numbers only, 10-15 digits)",
                       },
-                    })}
+                      // Remove onChange from register, use generic handler below
+                    }), { ref: undefined })}
+                    ref={mergeRefs(fieldRefs.phone, register("phone").ref)}
+                    onInput={handlePhoneInput}
+                    onChange={handleFieldChange("phone")}
                   />
                   {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
                 </div>
@@ -414,13 +660,19 @@ const RegisterForm = () => {
                       className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors.password ? "border-red-500" : "border-gray-300"
                       }`}
-                      {...register("password", {
+                      {...(register("password", {
                         required: "Password is required",
                         minLength: {
                           value: 8,
                           message: "Password must be at least 8 characters long",
                         },
-                      })}
+                        // Remove onChange from register, use generic handler below
+                      }), { ref: undefined })}
+                      ref={mergeRefs(fieldRefs.password, register("password").ref)}
+                      onChange={e => {
+                        handleFieldChange("password")(e)
+                        trigger("confirmPassword")
+                      }}
                     />
                     <button
                       type="button"
@@ -448,10 +700,13 @@ const RegisterForm = () => {
                       className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors.confirmPassword ? "border-red-500" : "border-gray-300"
                       }`}
-                      {...register("confirmPassword", {
+                      {...(register("confirmPassword", {
                         required: "Confirm Password is required",
                         validate: (value) => value === watch("password") || "Passwords do not match",
-                      })}
+                        // Remove onChange from register, use generic handler below
+                      }), { ref: undefined })}
+                      ref={mergeRefs(fieldRefs.confirmPassword, register("confirmPassword").ref)}
+                      onChange={handleFieldChange("confirmPassword")}
                     />
                     <button
                       type="button"
@@ -481,7 +736,11 @@ const RegisterForm = () => {
                       errors.address ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="123 Main St"
-                    {...register("address")}
+                    {...(register("address", {
+                      // Remove onChange from register, use generic handler below
+                    }), { ref: undefined })}
+                    ref={mergeRefs(fieldRefs.address, register("address").ref)}
+                    onChange={handleFieldChange("address")}
                   />
                 </div>
 
@@ -496,8 +755,18 @@ const RegisterForm = () => {
                       errors.state ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="CA"
-                    {...register("state")}
+                    {...(register("state", {
+                      pattern: {
+                        value: /^[A-Za-zÀ-ÿ' -]+$/,
+                        message: "State must contain only letters",
+                      },
+                      // Remove onChange from register, use generic handler below
+                    }), { ref: undefined })}
+                    ref={mergeRefs(fieldRefs.state, register("state").ref)}
+                    onInput={handleAlphaInput}
+                    onChange={handleFieldChange("state")}
                   />
+                  {errors.state && <p className="mt-1 text-xs text-red-600">{errors.state.message}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -511,8 +780,18 @@ const RegisterForm = () => {
                         errors.city ? "border-red-500" : "border-gray-300"
                       }`}
                       placeholder="Anytown"
-                      {...register("city")}
+                      {...(register("city", {
+                        pattern: {
+                          value: /^[A-Za-zÀ-ÿ' -]+$/,
+                          message: "City must contain only letters",
+                        },
+                        // Remove onChange from register, use generic handler below
+                      }), { ref: undefined })}
+                      ref={mergeRefs(fieldRefs.city, register("city").ref)}
+                      onInput={handleAlphaInput}
+                      onChange={handleFieldChange("city")}
                     />
+                    {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city.message}</p>}
                   </div>
 
                   <div>
@@ -526,18 +805,20 @@ const RegisterForm = () => {
                         errors.zipCode ? "border-red-500" : "border-gray-300"
                       }`}
                       placeholder="12345"
-                      {...register("zipCode", {
+                      {...(register("zipCode", {
                         pattern: {
                           value: /^\d{5}(-\d{4})?$/,
                           message: "Please enter a valid zip code",
                         },
-                      })}
+                        // Remove onChange from register, use generic handler below
+                      }), { ref: undefined })}
+                      ref={mergeRefs(fieldRefs.zipCode, register("zipCode").ref)}
+                      onInput={handleZipInput}
+                      onChange={handleFieldChange("zipCode")}
                     />
                     {errors.zipCode && <p className="mt-1 text-xs text-red-600">{errors.zipCode.message}</p>}
                   </div>
                 </div>
-
-                
 
                 <div className="mt-2">
                   <div className="flex items-start">
@@ -545,7 +826,15 @@ const RegisterForm = () => {
                       type="checkbox"
                       id="agreeToTerms"
                       className="h-4 w-4 mr-2 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      {...register("agreeToTerms", { required: "Please agree to the terms and conditions" })}
+                      {...(register("agreeToTerms", {
+                        required: "Please agree to the terms and conditions",
+                        // Remove onChange from register, use generic handler below
+                      }), { ref: undefined })}
+                      ref={mergeRefs(fieldRefs.agreeToTerms, register("agreeToTerms").ref)}
+                      onChange={e => {
+                        if (errors.agreeToTerms) clearErrors("agreeToTerms")
+                        setValue("agreeToTerms", e.target.checked)
+                      }}
                     />
                     <label htmlFor="agreeToTerms" className="text-xs text-gray-700">
                       I agree to the{" "}
@@ -622,6 +911,26 @@ const RegisterForm = () => {
                 </div>
               </div>
 
+              <div className="w-full mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Verification</label>
+                <p className="text-xs text-gray-500 mb-3">
+                  Please complete the security check below to verify you're not a robot.
+                </p>
+                <div className="flex justify-center w-full">
+                  <Recaptcha
+                    siteKey={getRecaptchaSiteKey()}
+                    onVerify={handleCaptchaVerify}
+                    onError={handleCaptchaError}
+                    theme="light"
+                    className={captchaError ? "border border-red-500 rounded-md p-1" : ""}
+                    id="register-recaptcha"
+                  />
+                </div>
+                {captchaError && (
+                  <p className="mt-1 text-xs text-red-600 text-center">Please complete the CAPTCHA verification</p>
+                )}
+              </div>
+
               <div className="flex justify-between">
                 <button
                   type="button"
@@ -632,8 +941,8 @@ const RegisterForm = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  disabled={isSubmitting || !captchaToken}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? "Creating Account..." : "Create Account"}
                 </button>
@@ -654,6 +963,4 @@ const RegisterForm = () => {
     </div>
   )
 }
-
 export default RegisterForm
-

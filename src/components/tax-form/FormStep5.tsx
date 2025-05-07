@@ -3,27 +3,38 @@ import { Label } from '../ui/label';
 import { FileUpload } from '../ui/file-upload';
 import { SignatureCapture } from '../ui/signature-capture';
 import { Checkbox } from '../ui/checkbox';
-import { HelpCircle, Info } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Info } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Link, useNavigate } from 'react-router-dom';
+import { FileText } from 'lucide-react';
+import { EngagementLetterData } from '@/types/form-types';
 
 interface FormStep5Props {
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => void;
+  handleFileDelete?: (fieldName: string) => void;
   handleRadioChange?: (name: string, value: string) => void;
   formData: {
     supportingDocs?: File | null;
-    signature: string;
+    signature: string | File | null;
     declarationAccepted?: string;
+    supportingDocsRequired?: string;
+    taxpayerType?: "individual" | "soleTrader";
+    engagementLetter?: EngagementLetterData | null;
+    itrEngagementCompleted?: boolean;
     [key: string]: any;
   };
   errors: Record<string, string>;
+  currentStep?: number;
+  engagementLetter: EngagementLetterData | null;
+  setEngagementLetter: (data: EngagementLetterData) => void;
 }
 
-const FormStep5: React.FC<FormStep5Props> = ({ handleChange, handleFileChange, handleRadioChange, formData, errors }) => {
-  const [signature, setSignature] = useState(formData.signature || '');
-  
+const FormStep5: React.FC<FormStep5Props> = ({ handleChange, handleFileChange, handleRadioChange, handleFileDelete, formData, errors, currentStep, engagementLetter, setEngagementLetter }) => {
+  const [signature, setSignature] = useState<string | null>(typeof formData.signature === 'string' ? formData.signature : null);
+  const navigate = useNavigate();
   const handleSignatureChange = (value: string | null) => {
-    setSignature(value || '');
+    setSignature(value);
     // Create a synthetic event to use with handleChange
     const event = {
       target: {
@@ -35,14 +46,16 @@ const FormStep5: React.FC<FormStep5Props> = ({ handleChange, handleFileChange, h
     handleChange(event);
   };
   
-  const handleFileDrop = (file: File | null) => {
+  const handleFileDrop = (file: File | null, fieldName: string) => {
     if (file) {
       const event = {
         target: {
           files: [file]
         }
       } as unknown as React.ChangeEvent<HTMLInputElement>;
-      handleFileChange(event, 'supportingDocs');
+      handleFileChange(event, fieldName);
+    } else if (handleFileDelete) {
+      handleFileDelete(fieldName);
     }
   };
   
@@ -60,13 +73,44 @@ const FormStep5: React.FC<FormStep5Props> = ({ handleChange, handleFileChange, h
     }
   };
   
+  const handleSupportingDocsRequired = (value: string) => {
+    if (handleRadioChange) {
+      handleRadioChange("supportingDocsRequired", value);
+    }
+  };
+
+  const handleEngagementLetterClick = () => {
+    // Navigate to engagement letter with all form data and current step
+    navigate("/tax-solutions/engagement", {
+      state: {
+        individualFormData: formData,
+        currentStep: currentStep || 5
+      }
+    });
+  };
+
+  // Determine if engagement letter warning should be displayed for sole traders
+  const showEngagementLetterWarning = formData.taxpayerType === 'soleTrader' && 
+      (!formData.engagementLetter || !formData.engagementLetter.accepted);
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 animate-fade-in">
       <div className="mb-4">
         <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-purple-700">Part 5: Declaration</h2>
         <p className="text-gray-600 mt-1">Please review the checklist to ensure all information is provided and supporting documents uploaded.</p>
       </div>
-      
+      {/* Show engagement letter warning for sole traders */}
+      {showEngagementLetterWarning && (
+        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-md mb-6">
+          <p className="font-medium text-yellow-800 mb-2">Important: You must complete the engagement letter before submitting your form.</p>
+          <Button 
+            onClick={handleEngagementLetterClick}
+            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+          >
+            <span className="inline-block mr-1">📝</span> Complete Engagement Letter
+          </Button>
+        </div>
+      )}
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-md mb-6 border-l-4 border-purple-500">
         <h3 className="font-semibold text-blue-800 mb-4">DECLARATION:</h3>
         <p className="mb-4 text-gray-700">You declare all information is correct and complete to the best of your knowledge.</p>
@@ -85,7 +129,7 @@ const FormStep5: React.FC<FormStep5Props> = ({ handleChange, handleFileChange, h
       </div>
       
       <div className="mt-6 space-y-6">
-        <div>
+        <div data-field="supportingDocs">
           <div className="flex items-center mb-2">
             <Label className="block text-gray-700 font-medium">Supporting Documents</Label>
             <div className="group relative ml-2 inline-block">
@@ -98,14 +142,52 @@ const FormStep5: React.FC<FormStep5Props> = ({ handleChange, handleFileChange, h
             </div>
           </div>
           <p className="text-sm text-gray-500 mb-2">Upload relevant tax documents (Group certificates, receipts, etc.)</p>
-          <FileUpload 
+          <div className="mb-3">
+            <div className="flex items-center mb-2">
+              <Label className="block text-gray-700 font-medium">Are supporting documents required?</Label>
+            </div>
+            <div className="flex space-x-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="supportingDocsYes"
+                  name="supportingDocsRequired"
+                  value="yes"
+                  checked={formData.supportingDocsRequired === "yes"}
+                  onChange={() => handleSupportingDocsRequired("yes")}
+                  className="h-4 w-4 text-blue-600"
+                />
+                <Label htmlFor="supportingDocsYes" className="cursor-pointer">
+                  Yes
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="supportingDocsNo"
+                  name="supportingDocsRequired"
+                  value="no"
+                  checked={formData.supportingDocsRequired === "no"}
+                  onChange={() => handleSupportingDocsRequired("no")}
+                  className="h-4 w-4 text-blue-600"
+                />
+                <Label htmlFor="supportingDocsNo" className="cursor-pointer">
+                  No
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          <FileUpload
             id="supportingDocs"
             name="supportingDocs"
             value={formData.supportingDocs as File | null}
-            onChange={handleFileDrop}
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+            onChange={(file) => handleFileDrop(file, "supportingDocs")}
+            onDelete={handleFileDelete}
+            accept="application/pdf,image/jpg,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             tooltip="You can upload multiple documents related to your tax return, including group certificates, receipts, and other supporting evidence."
             error={errors?.supportingDocs}
+            required={formData.supportingDocsRequired === "yes"}
           />
         </div>
         
@@ -143,7 +225,7 @@ const FormStep5: React.FC<FormStep5Props> = ({ handleChange, handleFileChange, h
           <SignatureCapture
             id="signature"
             name="signature"
-            value={signature}
+            value={signature || ""}
             onChange={handleSignatureChange}
             required
             error={errors?.signature}

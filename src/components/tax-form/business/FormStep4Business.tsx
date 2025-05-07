@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { Label } from '../../ui/label';
 import { FileUpload } from '../../ui/file-upload';
-import { SecuredBankingSection } from '../../ui/secured-banking-section';
 import { SignatureCapture } from '../../ui/signature-capture';
 import { Checkbox } from '../../ui/checkbox';
+import { Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
 
 interface FormStep4Props {
   formData: {
@@ -13,10 +13,6 @@ interface FormStep4Props {
     signature: string;
     signature2: string;
     directorId: string;
-    bankBsb: string;
-    bankAccountNo: string;
-    bankAccountName: string;
-    bankName: string;
     declarationAccepted: string;
     [key: string]: string | File | null;
   };
@@ -95,20 +91,13 @@ const FormStep4Business: React.FC<FormStep4Props> = ({
   };
   
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+    <div className="bg-white rounded-lg p-6 border border-gray-200">
       <div className="mb-4">
         <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-purple-700">Part 4: Documents & Declaration</h2>
         <p className="text-gray-600 mt-1">Please upload required documents and sign the declaration.</p>
       </div>
       
       <div className="space-y-6">
-        {/* Banking Information Section */}
-        <SecuredBankingSection 
-          formData={formData} 
-          handleChange={handleChange}
-          errors={errors}
-        />
-        
         {/* Upload Documents */}
         <div className="border-b border-gray-200 pb-6">
           <h3 className="text-lg font-semibold mb-4 text-gray-800">Upload Required Documents</h3>
@@ -117,6 +106,16 @@ const FormStep4Business: React.FC<FormStep4Props> = ({
             <div>
               <Label htmlFor="entityDocument" className="block text-gray-700 font-medium mb-2">
                 Current Company Information / Trust Deed / Partnership Agreement
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 inline-block ml-1 text-blue-500 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="w-64">Upload documents that verify your business entity structure</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </Label>
               <FileUpload
                 id="entityDocument"
@@ -124,7 +123,6 @@ const FormStep4Business: React.FC<FormStep4Props> = ({
                 value={formData.entityDocument}
                 onChange={handleEntityDocumentDrop}
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                tooltip="Upload documents that verify your business entity structure"
                 error={errors.entityDocument}
               />
             </div>
@@ -132,6 +130,16 @@ const FormStep4Business: React.FC<FormStep4Props> = ({
             <div>
               <Label htmlFor="ownerIdDocument" className="block text-gray-700 font-medium mb-2">
                 Photo IDs for each of the business' director / owner/ shareholder <span className="text-red-500">*</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 inline-block ml-1 text-blue-500 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="w-64">Upload copies of Passport or Drivers License for verification purposes</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </Label>
               <FileUpload
                 id="ownerIdDocument"
@@ -139,32 +147,44 @@ const FormStep4Business: React.FC<FormStep4Props> = ({
                 value={formData.ownerIdDocument}
                 onChange={handleOwnerIdDocumentDrop}
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                tooltip="Upload copies of Passport or Drivers License for verification purposes"
                 error={errors.ownerIdDocument}
+                required
               />
+              {errors.ownerIdDocument && (
+                <p className="mt-1 text-xs text-red-500">{errors.ownerIdDocument}</p>
+              )}
             </div>
 
             {/* Director ID */}
             <div>
               <Label htmlFor="directorId" className="block text-gray-700 font-medium mb-2">
                 Director ID
-                <span className="inline-block ml-1 group relative">
-                  <span className="text-blue-500 cursor-help">(?)</span>
-                  <span className="absolute left-0 bottom-full mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    The unique identifier given to a director by the Australian Business Registry Services
-                  </span>
-                </span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 inline-block ml-1 text-blue-500 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="w-64">The unique identifier given to a director by the Australian Business Registry Services</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </Label>
-              <input
-                type="text"
-                id="directorId"
-                name="directorId"
-                value={formData.directorId}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded px-3 py-2"
-                placeholder="Enter Director ID number"
-              />
-              {errors.directorId && <p className="mt-1 text-xs text-red-500">{errors.directorId}</p>}
+              <div className="relative">
+                <input
+                  type="text"
+                  id="directorId"
+                  name="directorId"
+                  value={formData.directorId}
+                  onChange={handleChange}
+                  className={`w-full border ${errors.directorId ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2`}
+                  placeholder="Enter Director ID number"
+                  maxLength={20}
+                />
+                {errors.directorId && (
+                  <p className="mt-1 text-xs text-red-500">{errors.directorId}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -212,6 +232,16 @@ const FormStep4Business: React.FC<FormStep4Props> = ({
           <div className="mb-6">
             <Label htmlFor="signature" className="block text-gray-700 font-medium mb-2">
               Owner / Director / Manager 1 Signature <span className="text-red-500">*</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 inline-block ml-1 text-blue-500 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Draw your signature using your mouse or touch screen</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </Label>
             <SignatureCapture
               id="signature"
@@ -221,12 +251,25 @@ const FormStep4Business: React.FC<FormStep4Props> = ({
               required
               error={errors.signature}
             />
+            {errors.signature && (
+              <p className="mt-1 text-xs text-red-500">{errors.signature}</p>
+            )}
           </div>
 
           {/* Signature 2 */}
           <div>
             <Label htmlFor="signature2" className="block text-gray-700 font-medium mb-2">
               Owner / Director / Manager 2 Signature
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 inline-block ml-1 text-blue-500 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Optional: Only required if there is a second person who needs to sign</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </Label>
             <SignatureCapture
               id="signature2"
@@ -235,6 +278,9 @@ const FormStep4Business: React.FC<FormStep4Props> = ({
               onChange={handleSignature2Change}
               error={errors.signature2}
             />
+            {errors.signature2 && (
+              <p className="mt-1 text-xs text-red-500">{errors.signature2}</p>
+            )}
           </div>
         </div>
       </div>

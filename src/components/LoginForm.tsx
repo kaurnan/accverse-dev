@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { Eye, EyeOff, LogIn, AlertCircle } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
@@ -10,17 +10,23 @@ import * as api from "../services/api"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import GoogleAuthButton from "./GoogleAuthButton"
+import Recaptcha from "./ui/recaptcha"
+import { getRecaptchaSiteKey } from "../utils/captcha-validation"
+import { resetWidgetByContainerId } from "../utils/recaptcha-manager"
 
 interface FormData {
   email: string
   password: string
   rememberMe: boolean
+  captchaToken?: string
 }
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
   const [isResendingVerification, setIsResendingVerification] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaError, setCaptchaError] = useState(false)
   const navigate = useNavigate()
   const { login } = useAuth()
 
@@ -35,6 +41,19 @@ const LoginForm = () => {
       rememberMe: !!localStorage.getItem("rememberedEmail"),
     },
   })
+
+  // Reset CAPTCHA when component unmounts
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && document.getElementById("login-recaptcha")) {
+        try {
+          resetWidgetByContainerId("login-recaptcha")
+        } catch (error) {
+          console.error("Error resetting reCAPTCHA:", error)
+        }
+      }
+    }
+  }, [])
 
   const handleResendVerification = async () => {
     const email = unverifiedEmail || getValues("email")
@@ -53,12 +72,23 @@ const LoginForm = () => {
   }
 
   const onSubmit = async (data: FormData) => {
+    // Validate CAPTCHA
+    if (!captchaToken) {
+      setCaptchaError(true)
+      toast.error("Please complete the CAPTCHA verification")
+      return
+    }
+
+    // Skip client-side validation to avoid token reuse issues
+    // The server will validate the token
+
     try {
-      const response = await api.login(data.email, data.password)
+      // Add captcha token to the request
+      const response = await api.login(data.email, data.password, captchaToken)
 
       // Store token and user data
       localStorage.setItem("token", response.token)
-      localStorage.setItem("user", JSON.stringify({...response.user, provider: 'api'}))
+      localStorage.setItem("user", JSON.stringify({ ...response.user, provider: "api" }))
 
       // Remember me functionality
       if (data.rememberMe) {
@@ -68,7 +98,7 @@ const LoginForm = () => {
       }
 
       // Update auth context
-      login({...response.user, provider: 'api'}, response.token)
+      login({ ...response.user, provider: "api" }, response.token)
 
       toast.success("Login successful!")
 
@@ -80,10 +110,42 @@ const LoginForm = () => {
       // Check if the error is about unverified account
       if (error instanceof Error && error.message.includes("not verified")) {
         setUnverifiedEmail(data.email)
+      } else if (error instanceof Error && error.message.includes("CAPTCHA")) {
+        toast.error(error.message)
+        setCaptchaError(true)
+        // Reset the CAPTCHA widget
+        resetWidgetByContainerId("login-recaptcha")
+        setCaptchaToken(null)
+      } else if (
+        typeof error === "object" && error !== null &&
+        "response" in error && typeof (error as any).response === "object" && (error as any).response !== null &&
+        "data" in (error as any).response && typeof (error as any).response.data === "object" && (error as any).response.data !== null &&
+        "error" in (error as any).response.data
+      ) {
+        toast.error((error as any).response.data.error)
+
+        // If it's a CAPTCHA error, reset the CAPTCHA
+        if ((error as any).response.data.error.includes("CAPTCHA")) {
+          setCaptchaError(true)
+          resetWidgetByContainerId("login-recaptcha")
+          setCaptchaToken(null)
+        }
       } else {
         toast.error("Invalid email or password. Please try again.")
       }
     }
+  }
+
+  const handleCaptchaVerify = (token: string) => {
+    console.log("CAPTCHA verification completed")
+    setCaptchaToken(token)
+    setCaptchaError(false)
+  }
+
+  const handleCaptchaError = () => {
+    console.log("CAPTCHA error callback triggered")
+    setCaptchaError(true)
+    setCaptchaToken(null)
   }
 
   return (
@@ -182,6 +244,24 @@ const LoginForm = () => {
             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
           </div>
 
+          {/* Google CAPTCHA */}
+          <div className="w-full">
+            <Label className="block text-sm font-medium text-gray-700 mb-1">Security Verification</Label>
+            <div className="flex justify-center w-full">
+              <Recaptcha
+                siteKey={getRecaptchaSiteKey()}
+                onVerify={handleCaptchaVerify}
+                onError={handleCaptchaError}
+                theme="light"
+                className={captchaError ? "border border-red-500 rounded-md p-1" : ""}
+                id="login-recaptcha"
+              />
+            </div>
+            {captchaError && (
+              <p className="mt-1 text-xs text-red-600 text-center">Please complete the CAPTCHA verification</p>
+            )}
+          </div>
+
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
@@ -203,8 +283,8 @@ const LoginForm = () => {
 
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center"
+            disabled={isSubmitting || !captchaToken}
+            className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <span className="flex items-center">

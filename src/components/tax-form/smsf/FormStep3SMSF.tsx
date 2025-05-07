@@ -1,8 +1,8 @@
-
 import React from 'react';
 import { Label } from '../../ui/label';
 import { HelpCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
+import { FileUpload } from '../../ui/file-upload2';
 
 interface FormStep3SMSFProps {
   formData: {
@@ -17,10 +17,18 @@ interface FormStep3SMSFProps {
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   handleRadioChange: (name: string, value: string) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => void;
+  handleFileUpload?: (fieldName: string, file: File | null) => void;
   errors: Record<string, string>;
 }
 
-const FormStep3SMSF: React.FC<FormStep3SMSFProps> = ({ formData, handleChange, handleRadioChange, handleFileChange, errors }) => {
+const FormStep3SMSF: React.FC<FormStep3SMSFProps> = ({ 
+  formData, 
+  handleChange, 
+  handleRadioChange, 
+  handleFileChange,
+  handleFileUpload,
+  errors 
+}) => {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
       <div className="mb-4">
@@ -46,19 +54,15 @@ const FormStep3SMSF: React.FC<FormStep3SMSFProps> = ({ formData, handleChange, h
               </Tooltip>
             </TooltipProvider>
           </div>
-          <p className="text-sm text-gray-500 mb-2">Upload Trust Deeds of the fund & any Deeds of Variation.</p>
-          <input
-            type="file"
+          <FileUpload
             id="trustDeeds"
             name="trustDeeds"
-            onChange={(e) => handleFileChange(e, 'trustDeeds')}
-            className={`w-full border ${errors.trustDeeds ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
+            value={formData.trustDeeds}
+            onChange={(file) => handleFileUpload && handleFileUpload('trustDeeds', file)}
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            error={errors.trustDeeds}
+            helper="Upload Trust Deeds of the fund & any Deeds of Variation."
           />
-          <p className="text-sm text-gray-500 mt-1">
-            {formData.trustDeeds ? `Selected file: ${formData.trustDeeds.name}` : 'No file selected'}
-          </p>
-          {errors.trustDeeds && <p className="text-red-500 text-sm mt-1">{errors.trustDeeds}</p>}
         </div>
 
         {/* Original Fund Records */}
@@ -78,19 +82,15 @@ const FormStep3SMSF: React.FC<FormStep3SMSFProps> = ({ formData, handleChange, h
               </Tooltip>
             </TooltipProvider>
           </div>
-          <p className="text-sm text-gray-500 mb-2">Upload Minutes of Meetings</p>
-          <input
-            type="file"
+          <FileUpload
             id="originalFundRecords"
             name="originalFundRecords"
-            onChange={(e) => handleFileChange(e, 'originalFundRecords')}
-            className={`w-full border ${errors.originalFundRecords ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
+            value={formData.originalFundRecords}
+            onChange={(file) => handleFileUpload && handleFileUpload('originalFundRecords', file)}
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            error={errors.originalFundRecords}
+            helper="Upload Minutes of Meetings"
           />
-          <p className="text-sm text-gray-500 mt-1">
-            {formData.originalFundRecords ? `Selected file: ${formData.originalFundRecords.name}` : 'No file selected'}
-          </p>
-          {errors.originalFundRecords && <p className="text-red-500 text-sm mt-1">{errors.originalFundRecords}</p>}
         </div>
 
         {/* Member Application */}
@@ -110,18 +110,14 @@ const FormStep3SMSF: React.FC<FormStep3SMSFProps> = ({ formData, handleChange, h
               </Tooltip>
             </TooltipProvider>
           </div>
-          <input
-            type="file"
+          <FileUpload
             id="memberApplication"
             name="memberApplication"
-            onChange={(e) => handleFileChange(e, 'memberApplication')}
-            className={`w-full border ${errors.memberApplication ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
+            value={formData.memberApplication}
+            onChange={(file) => handleFileUpload && handleFileUpload('memberApplication', file)}
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            error={errors.memberApplication}
           />
-          <p className="text-sm text-gray-500 mt-1">
-            {formData.memberApplication ? `Selected file: ${formData.memberApplication.name}` : 'No file selected'}
-          </p>
-          {errors.memberApplication && <p className="text-red-500 text-sm mt-1">{errors.memberApplication}</p>}
         </div>
 
         {/* Trustee Consent */}
@@ -141,18 +137,14 @@ const FormStep3SMSF: React.FC<FormStep3SMSFProps> = ({ formData, handleChange, h
               </Tooltip>
             </TooltipProvider>
           </div>
-          <input
-            type="file"
+          <FileUpload
             id="trusteeConsent"
             name="trusteeConsent"
-            onChange={(e) => handleFileChange(e, 'trusteeConsent')}
-            className={`w-full border ${errors.trusteeConsent ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
+            value={formData.trusteeConsent}
+            onChange={(file) => handleFileUpload && handleFileUpload('trusteeConsent', file)}
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            error={errors.trusteeConsent}
           />
-          <p className="text-sm text-gray-500 mt-1">
-            {formData.trusteeConsent ? `Selected file: ${formData.trusteeConsent.name}` : 'No file selected'}
-          </p>
-          {errors.trusteeConsent && <p className="text-red-500 text-sm mt-1">{errors.trusteeConsent}</p>}
         </div>
 
         {/* Fund Investment Strategy */}
@@ -172,18 +164,14 @@ const FormStep3SMSF: React.FC<FormStep3SMSFProps> = ({ formData, handleChange, h
               </Tooltip>
             </TooltipProvider>
           </div>
-          <input
-            type="file"
+          <FileUpload
             id="fundInvestmentStrategy"
             name="fundInvestmentStrategy"
-            onChange={(e) => handleFileChange(e, 'fundInvestmentStrategy')}
-            className={`w-full border ${errors.fundInvestmentStrategy ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
+            value={formData.fundInvestmentStrategy}
+            onChange={(file) => handleFileUpload && handleFileUpload('fundInvestmentStrategy', file)}
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            error={errors.fundInvestmentStrategy}
           />
-          <p className="text-sm text-gray-500 mt-1">
-            {formData.fundInvestmentStrategy ? `Selected file: ${formData.fundInvestmentStrategy.name}` : 'No file selected'}
-          </p>
-          {errors.fundInvestmentStrategy && <p className="text-red-500 text-sm mt-1">{errors.fundInvestmentStrategy}</p>}
         </div>
 
         {/* Rollover Statements */}
@@ -203,18 +191,14 @@ const FormStep3SMSF: React.FC<FormStep3SMSFProps> = ({ formData, handleChange, h
               </Tooltip>
             </TooltipProvider>
           </div>
-          <input
-            type="file"
+          <FileUpload
             id="rolloverStatements"
             name="rolloverStatements"
-            onChange={(e) => handleFileChange(e, 'rolloverStatements')}
-            className={`w-full border ${errors.rolloverStatements ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
+            value={formData.rolloverStatements}
+            onChange={(file) => handleFileUpload && handleFileUpload('rolloverStatements', file)}
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            error={errors.rolloverStatements}
           />
-          <p className="text-sm text-gray-500 mt-1">
-            {formData.rolloverStatements ? `Selected file: ${formData.rolloverStatements.name}` : 'No file selected'}
-          </p>
-          {errors.rolloverStatements && <p className="text-red-500 text-sm mt-1">{errors.rolloverStatements}</p>}
         </div>
       </div>
     </div>

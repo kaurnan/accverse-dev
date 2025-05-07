@@ -11,10 +11,11 @@ export interface SelectProps extends React.ComponentPropsWithoutRef<typeof Selec
   required?: boolean;
   className?: string;
   onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  id?: string // Add this line to accept the id prop
 }
 
 const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
-  ({ className, tooltip, error, children, required, value, onValueChange, onChange, ...props }, ref) => {
+  ({ className, tooltip, error, children, required, value, onValueChange, onChange, id, name, ...props }, ref) => {
     // Handle onChange if provided (for compatibility with form handlers)
     const handleValueChange = (newValue: string) => {
       if (onValueChange) {
@@ -25,9 +26,10 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
       if (onChange) {
         const syntheticEvent = {
           target: {
-            name: props.name || "",
-            value: newValue
-          }
+            name: name || "",
+            value: newValue,
+            id : id || "",
+          },
         } as React.ChangeEvent<HTMLSelectElement>;
         
         onChange(syntheticEvent);
@@ -54,10 +56,11 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
           </div>
         )}
       
-        <SelectPrimitive.Root value={value} onValueChange={handleValueChange}>
+        <SelectPrimitive.Root value={value} onValueChange={handleValueChange} {...props}>
           <SelectPrimitive.Trigger
             ref={ref}
-            {...props} 
+            id={id}
+            // {...props} 
             className={cn(
               "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
               error ? "border-red-500 focus:ring-red-500" : "",

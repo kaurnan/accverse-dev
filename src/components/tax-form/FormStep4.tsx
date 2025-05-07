@@ -49,12 +49,12 @@ const FormStep4: React.FC<FormStep4Props> = ({
             className="flex flex-row space-x-4 mt-2"
           >
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="yes" id="carExpenseYes" />
-              <Label htmlFor="carExpenseYes" className="cursor-pointer">Yes</Label>
+              <RadioGroupItem value="yes" id="carExpense" />
+              <Label htmlFor="carExpense" className="cursor-pointer">Yes</Label>
             </div>
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="no" id="carExpenseNo" />
-              <Label htmlFor="carExpenseNo" className="cursor-pointer">No</Label>
+              <RadioGroupItem value="no" id="carExpense" />
+              <Label htmlFor="carExpense" className="cursor-pointer">No</Label>
             </div>
           </RadioGroup>
           {errors.carExpense && <p className="mt-1 text-xs text-red-500">{errors.carExpense}</p>}
@@ -79,12 +79,12 @@ const FormStep4: React.FC<FormStep4Props> = ({
             className="flex flex-row space-x-4 mt-2"
           >
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="yes" id="uniformExpenseYes" />
-              <Label htmlFor="uniformExpenseYes" className="cursor-pointer">Yes</Label>
+              <RadioGroupItem value="yes" id="uniformExpense" />
+              <Label htmlFor="uniformExpense" className="cursor-pointer">Yes</Label>
             </div>
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="no" id="uniformExpenseNo" />
-              <Label htmlFor="uniformExpenseNo" className="cursor-pointer">No</Label>
+              <RadioGroupItem value="no" id="uniformExpense" />
+              <Label htmlFor="uniformExpense" className="cursor-pointer">No</Label>
             </div>
           </RadioGroup>
           {errors.uniformExpense && <p className="mt-1 text-xs text-red-500">{errors.uniformExpense}</p>}
@@ -109,12 +109,12 @@ const FormStep4: React.FC<FormStep4Props> = ({
             className="flex flex-row space-x-4 mt-2"
           >
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="yes" id="travelExpenseYes" />
-              <Label htmlFor="travelExpenseYes" className="cursor-pointer">Yes</Label>
+              <RadioGroupItem value="yes" id="travelExpense" />
+              <Label htmlFor="travelExpense" className="cursor-pointer">Yes</Label>
             </div>
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="no" id="travelExpenseNo" />
-              <Label htmlFor="travelExpenseNo" className="cursor-pointer">No</Label>
+              <RadioGroupItem value="no" id="travelExpense" />
+              <Label htmlFor="travelExpense" className="cursor-pointer">No</Label>
             </div>
           </RadioGroup>
           {errors.travelExpense && <p className="mt-1 text-xs text-red-500">{errors.travelExpense}</p>}
@@ -139,12 +139,12 @@ const FormStep4: React.FC<FormStep4Props> = ({
             className="flex flex-row space-x-4 mt-2"
           >
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="yes" id="educationExpenseYes" />
-              <Label htmlFor="educationExpenseYes" className="cursor-pointer">Yes</Label>
+              <RadioGroupItem value="yes" id="educationExpense" />
+              <Label htmlFor="educationExpense" className="cursor-pointer">Yes</Label>
             </div>
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="no" id="educationExpenseNo" />
-              <Label htmlFor="educationExpenseNo" className="cursor-pointer">No</Label>
+              <RadioGroupItem value="no" id="educationExpense" />
+              <Label htmlFor="educationExpense" className="cursor-pointer">No</Label>
             </div>
           </RadioGroup>
           {errors.educationExpense && <p className="mt-1 text-xs text-red-500">{errors.educationExpense}</p>}
@@ -169,12 +169,12 @@ const FormStep4: React.FC<FormStep4Props> = ({
             className="flex flex-row space-x-4 mt-2"
           >
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="yes" id="phoneExpenseYes" />
-              <Label htmlFor="phoneExpenseYes" className="cursor-pointer">Yes</Label>
+              <RadioGroupItem value="yes" id="phoneExpense" />
+              <Label htmlFor="phoneExpense" className="cursor-pointer">Yes</Label>
             </div>
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="no" id="phoneExpenseNo" />
-              <Label htmlFor="phoneExpenseNo" className="cursor-pointer">No</Label>
+              <RadioGroupItem value="no" id="phoneExpense" />
+              <Label htmlFor="phoneExpense" className="cursor-pointer">No</Label>
             </div>
           </RadioGroup>
           {errors.phoneExpense && <p className="mt-1 text-xs text-red-500">{errors.phoneExpense}</p>}
@@ -199,20 +199,20 @@ const FormStep4: React.FC<FormStep4Props> = ({
             className="flex flex-col space-y-2 mt-2"
           >
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="upTo5Items" id="toolsUpTo5" />
-              <Label htmlFor="toolsUpTo5" className="cursor-pointer">Yes: up to 5 Items</Label>
+              <RadioGroupItem value="upTo5Items" id="toolsExpenseUpTo5Items" />
+              <Label htmlFor="toolsExpenseUpTo5Items" className="cursor-pointer">Yes: up to 5 Items</Label>
             </div>
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="upTo10Items" id="toolsUpTo10" />
-              <Label htmlFor="toolsUpTo10" className="cursor-pointer">Yes: up to 10 Items</Label>
+              <RadioGroupItem value="upTo10Items" id="toolsExpenseUpTo10Items" />
+              <Label htmlFor="toolsExpenseUpTo10Items" className="cursor-pointer">Yes: up to 10 Items</Label>
             </div>
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="upTo20Items" id="toolsUpTo20" />
-              <Label htmlFor="toolsUpTo20" className="cursor-pointer">Yes: up to 20 Items</Label>
+              <RadioGroupItem value="upTo20Items" id="toolsExpenseUpTo20Items" />
+              <Label htmlFor="toolsExpenseUpTo20Items" className="cursor-pointer">Yes: up to 20 Items</Label>
             </div>
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-              <RadioGroupItem value="no" id="toolsNo" />
-              <Label htmlFor="toolsNo" className="cursor-pointer">No</Label>
+              <RadioGroupItem value="no" id="toolsExpenseNo" />
+              <Label htmlFor="toolsExpenseNo" className="cursor-pointer">No</Label>
             </div>
           </RadioGroup>
           {errors.toolsExpense && <p className="mt-1 text-xs text-red-500">{errors.toolsExpense}</p>}
@@ -238,8 +238,8 @@ const FormStep4: React.FC<FormStep4Props> = ({
               className="flex flex-row space-x-4 mt-2"
             >
               <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-          <RadioGroupItem value="yes" id="otherWorkExpensesYes" />
-          <Label htmlFor="otherWorkExpensesYes" className="cursor-pointer">Yes</Label>
+          <RadioGroupItem value="yes" id="otherWorkExpenses" />
+          <Label htmlFor="otherWorkExpenses" className="cursor-pointer">Yes</Label>
               </div>
               <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
           <RadioGroupItem value="no" id="otherWorkExpensesNo" />
@@ -267,12 +267,12 @@ const FormStep4: React.FC<FormStep4Props> = ({
               className="flex flex-row space-x-4 mt-2"
             >
               <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-          <RadioGroupItem value="yes" id="incomeProtectionYes" />
-          <Label htmlFor="incomeProtectionYes" className="cursor-pointer">Yes</Label>
-              </div>
-              <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-          <RadioGroupItem value="no" id="incomeProtectionNo" />
-          <Label htmlFor="incomeProtectionNo" className="cursor-pointer">No</Label>
+          <RadioGroupItem value="yes" id="incomeProtectionInsuranceYes" />
+          <Label htmlFor="incomeProtectionInsuranceYes" className="cursor-pointer">Yes</Label>
+          </div>
+          <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
+          <RadioGroupItem value="no" id="incomeProtectionInsuranceNo" />
+          <Label htmlFor="incomeProtectionInsuranceNo" className="cursor-pointer">No</Label>
               </div>
             </RadioGroup>
             {errors.incomeProtectionInsurance && <p className="mt-1 text-xs text-red-500">{errors.incomeProtectionInsurance}</p>}
@@ -310,16 +310,16 @@ const FormStep4: React.FC<FormStep4Props> = ({
             <p className="text-sm text-gray-500 mt-1">Must be made 'only' to Registered Charities & DGRs. e.g Red Cross, St Vincent DePaul, Bushfire Relief.</p>
           </div>
 
-          <div className="form-group">
+            <div className="form-group">
             <div className="flex items-center mb-2">
               <Label className="block text-gray-700 font-medium">TAX AGENT FEES PAID? <span className="text-red-500">*</span></Label>
               <div className="group relative ml-2 inline-block">
-          <button type="button" className="text-blue-500" aria-label="TFN information">
+            <button type="button" className="text-blue-500" aria-label="TFN information">
             <Info size={16} />
-          </button>
-          <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
+            </button>
+            <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
             <p>Fees paid to tax agents for preparing previous year's tax return.</p>
-          </div>
+            </div>
               </div>
             </div>
             <RadioGroup 
@@ -328,29 +328,29 @@ const FormStep4: React.FC<FormStep4Props> = ({
               className="flex flex-row space-x-4 mt-2"
             >
               <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-          <RadioGroupItem value="yes" id="taxAgentFeesYes" />
-          <Label htmlFor="taxAgentFeesYes" className="cursor-pointer">Yes</Label>
+            <RadioGroupItem value="yes" id="taxAgentFeesYes" />
+            <Label htmlFor="taxAgentFeesYes" className="cursor-pointer">Yes</Label>
               </div>
               <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-          <RadioGroupItem value="no" id="taxAgentFeesNo" />
-          <Label htmlFor="taxAgentFeesNo" className="cursor-pointer">No</Label>
+            <RadioGroupItem value="no" id="taxAgentFeesNo" />
+            <Label htmlFor="taxAgentFeesNo" className="cursor-pointer">No</Label>
               </div>
             </RadioGroup>
             {errors.taxAgentFees && <p className="mt-1 text-xs text-red-500">{errors.taxAgentFees}</p>}
+            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="form-group">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="form-group">
             <div className="flex items-center mb-2">
               <Label className="block text-gray-700 font-medium">PERSONAL SUPER CONTRIBUTION? <span className="text-red-500">*</span></Label>
               <div className="group relative ml-2 inline-block">
-          <button type="button" className="text-blue-500" aria-label="TFN information">
+            <button type="button" className="text-blue-500" aria-label="TFN information">
             <Info size={16} />
-          </button>
-          <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
+            </button>
+            <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
             <p>Additional super contributions you've made from your after-tax income.</p>
-          </div>
+            </div>
               </div>
             </div>
             <RadioGroup 
@@ -359,29 +359,29 @@ const FormStep4: React.FC<FormStep4Props> = ({
               className="flex flex-row space-x-4 mt-2"
             >
               <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-          <RadioGroupItem value="yes" id="superContributionYes" />
-          <Label htmlFor="superContributionYes" className="cursor-pointer">Yes</Label>
+            <RadioGroupItem value="yes" id="superContributionYes" />
+            <Label htmlFor="superContributionYes" className="cursor-pointer">Yes</Label>
               </div>
               <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-          <RadioGroupItem value="no" id="superContributionNo" />
-          <Label htmlFor="superContributionNo" className="cursor-pointer">No</Label>
+            <RadioGroupItem value="no" id="superContributionNo" />
+            <Label htmlFor="superContributionNo" className="cursor-pointer">No</Label>
               </div>
             </RadioGroup>
             {errors.superContribution && <p className="mt-1 text-xs text-red-500">{errors.superContribution}</p>}
             <p className="text-sm text-gray-500 mt-1">(NOT EMPLOYER CONTRIBUTION)</p>
-          </div>
+            </div>
 
-          <div className="form-group">
+            <div className="form-group">
             <div className="flex items-center mb-2">
               <Label className="block text-gray-700 font-medium">INTEREST EXPENSE? <span className="text-red-500">*</span></Label>
-                <div className="group relative ml-2 inline-block">
-                  <button type="button" className="text-blue-500" aria-label="TFN information">
-                  <Info size={16} />
-                  </button>
-                  <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
-                    <p>Interest paid on loans used to purchase income-producing investments.</p>
-                  </div>
+              <div className="group relative ml-2 inline-block">
+                <button type="button" className="text-blue-500" aria-label="TFN information">
+                <Info size={16} />
+                </button>
+                <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
+                <p>Interest paid on loans used to purchase income-producing investments.</p>
                 </div>
+              </div>
             </div>
             <RadioGroup 
               value={formData.interestExpense || ''} 
@@ -389,36 +389,36 @@ const FormStep4: React.FC<FormStep4Props> = ({
               className="flex flex-row space-x-4 mt-2"
             >
               <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-                <RadioGroupItem value="yes" id="interestExpenseYes" />
-                <Label htmlFor="interestExpenseYes" className="cursor-pointer">Yes</Label>
+              <RadioGroupItem value="yes" id="interestExpenseYes" />
+              <Label htmlFor="interestExpenseYes" className="cursor-pointer">Yes</Label>
               </div>
               <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
-                <RadioGroupItem value="no" id="interestExpenseNo" />
-                <Label htmlFor="interestExpenseNo" className="cursor-pointer">No</Label>
+              <RadioGroupItem value="no" id="interestExpenseNo" />
+              <Label htmlFor="interestExpenseNo" className="cursor-pointer">No</Label>
               </div>
             </RadioGroup>
             {errors.interestExpense && <p className="mt-1 text-xs text-red-500">{errors.interestExpense}</p>}
             <p className="text-sm text-gray-500 mt-1">For interest & /or borrowing expenses relating to income earned. DO NOT INCLUDE THE LOAN AMOUNT.</p>
+            </div>
           </div>
-        </div>
 
-        <div className="form-group">
-          <div className="flex items-center mb-2">
+          <div className="form-group">
+            <div className="flex items-center mb-2">
             <Label className="block text-gray-700 font-medium">DID YOU WORK FROM HOME? <span className="text-red-500">*</span></Label>
             <div className="group relative ml-2 inline-block">
               <button type="button" className="text-blue-500" aria-label="TFN information">
               <Info size={16} />
               </button>
               <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
-                  <p>Expenses related to working from home including electricity, internet, etc.</p>
+                <p>Expenses related to working from home including electricity, internet, etc.</p>
               </div>
             </div>
-          </div>
-          <RadioGroup 
+            </div>
+            <RadioGroup 
             value={formData.workFromHome || ''} 
             onValueChange={(value: string) => handleRadioChange('workFromHome', value)}
             className="flex flex-row space-x-4 mt-2"
-          >
+            >
             <div className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100">
               <RadioGroupItem value="yes" id="workFromHomeYes" />
               <Label htmlFor="workFromHomeYes" className="cursor-pointer">Yes</Label>
@@ -427,9 +427,9 @@ const FormStep4: React.FC<FormStep4Props> = ({
               <RadioGroupItem value="no" id="workFromHomeNo" />
               <Label htmlFor="workFromHomeNo" className="cursor-pointer">No</Label>
             </div>
-          </RadioGroup>
-          {errors.workFromHome && <p className="mt-1 text-xs text-red-500">{errors.workFromHome}</p>}
-        </div>
+            </RadioGroup>
+            {errors.workFromHome && <p className="mt-1 text-xs text-red-500">{errors.workFromHome}</p>}
+          </div>
       </div>
     </div>
   );

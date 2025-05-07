@@ -1,29 +1,26 @@
-
 import React from 'react';
 import { Label } from '../../ui/label';
 import { HelpCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
+import { FileUpload } from '../../ui/file-upload2';
 
 interface FormStep4SMSFProps {
-  formData: {
-    capitalGains: string;
-    propertyCapitalGains: string;
-    rentalIncome: string;
-    trustDistribution: string;
-    partnershipDistribution: string;
-    dividendIncome: string;
-    investmentExpenses: string;
-    managementExpenses: string;
-    expenseInvoices: File | null;
-    [key: string]: string | File | null;
-  };
+  formData: any;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   handleRadioChange: (name: string, value: string) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => void;
+  handleFileUpload?: (fieldName: string, file: File | null) => void;
   errors: Record<string, string>;
 }
 
-const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, handleRadioChange, handleFileChange, errors }) => {
+const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ 
+  formData, 
+  handleChange, 
+  handleRadioChange, 
+  handleFileChange, 
+  handleFileUpload,
+  errors 
+}) => {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
       <div className="mb-4">
@@ -71,6 +68,7 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <span className="ml-2">No</span>
             </label>
           </div>
+          {errors.capitalGains && <p className="text-red-500 text-sm mt-1">{errors.capitalGains}</p>}
         </div>
 
         {/* Property Capital Gains */}
@@ -112,6 +110,7 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <span className="ml-2">No</span>
             </label>
           </div>
+          {errors.propertyCapitalGains && <p className="text-red-500 text-sm mt-1">{errors.propertyCapitalGains}</p>}
         </div>
 
         {/* Rental Income */}
@@ -153,6 +152,7 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <span className="ml-2">No</span>
             </label>
           </div>
+          {errors.rentalIncome && <p className="text-red-500 text-sm mt-1">{errors.rentalIncome}</p>}
         </div>
 
         {/* Trust Distribution */}
@@ -194,6 +194,7 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <span className="ml-2">No</span>
             </label>
           </div>
+          {errors.trustDistribution && <p className="text-red-500 text-sm mt-1">{errors.trustDistribution}</p>}
         </div>
 
         {/* Partnership Distribution */}
@@ -235,6 +236,7 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <span className="ml-2">No</span>
             </label>
           </div>
+          {errors.partnershipDistribution && <p className="text-red-500 text-sm mt-1">{errors.partnershipDistribution}</p>}
         </div>
 
         {/* Dividend Income */}
@@ -276,6 +278,7 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <span className="ml-2">No</span>
             </label>
           </div>
+          {errors.dividendIncome && <p className="text-red-500 text-sm mt-1">{errors.dividendIncome}</p>}
         </div>
 
         {/* Investment Expenses */}
@@ -317,6 +320,7 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <span className="ml-2">No</span>
             </label>
           </div>
+          {errors.investmentExpenses && <p className="text-red-500 text-sm mt-1">{errors.investmentExpenses}</p>}
         </div>
 
         {/* Management Expenses */}
@@ -358,6 +362,7 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               <span className="ml-2">No</span>
             </label>
           </div>
+          {errors.managementExpenses && <p className="text-red-500 text-sm mt-1">{errors.managementExpenses}</p>}
         </div>
 
         {/* Expense Invoices */}
@@ -377,19 +382,33 @@ const FormStep4SMSF: React.FC<FormStep4SMSFProps> = ({ formData, handleChange, h
               </Tooltip>
             </TooltipProvider>
           </div>
-          <p className="text-sm text-gray-500 mb-2">Upload invoices for expenses claimed by the fund.</p>
-          <input
-            type="file"
-            id="expenseInvoices"
-            name="expenseInvoices"
-            onChange={(e) => handleFileChange(e, 'expenseInvoices')}
-            className={`w-full border ${errors.expenseInvoices ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            {formData.expenseInvoices ? `Selected file: ${formData.expenseInvoices.name}` : 'No file selected'}
-          </p>
-          {errors.expenseInvoices && <p className="text-red-500 text-sm mt-1">{errors.expenseInvoices}</p>}
+          
+          {handleFileUpload ? (
+            <FileUpload
+              id="expenseInvoices"
+              value={formData.expenseInvoices}
+              onChange={(file) => handleFileUpload('expenseInvoices', file)}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              error={errors.expenseInvoices}
+              helper="Upload invoices for expenses claimed by the fund."
+            />
+          ) : (
+            <>
+              <p className="text-sm text-gray-500 mb-2">Upload invoices for expenses claimed by the fund.</p>
+              <input
+                type="file"
+                id="expenseInvoices"
+                name="expenseInvoices"
+                onChange={(e) => handleFileChange(e, 'expenseInvoices')}
+                className={`w-full border ${errors.expenseInvoices ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                {formData.expenseInvoices ? `Selected file: ${formData.expenseInvoices.name}` : 'No file selected'}
+              </p>
+              {errors.expenseInvoices && <p className="text-red-500 text-sm mt-1">{errors.expenseInvoices}</p>}
+            </>
+          )}
         </div>
       </div>
     </div>

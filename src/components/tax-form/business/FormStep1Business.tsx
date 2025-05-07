@@ -1,54 +1,64 @@
+"use client"
 
-import React from 'react';
-import { Label } from '../../ui/label';
-import { Input } from '../../ui/input';
-import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
-import { Info } from 'lucide-react';
+import type React from "react"
+import { useState } from "react"
+import { Label } from "../../ui/label"
+import { Input } from "../../ui/input"
+import { RadioGroup, RadioGroupItem } from "../../ui/radio-group"
+import { Info } from "lucide-react"
 
 interface FormStep1Props {
   formData: {
-    taxLodgement: string;
-    entityType: string;
-    entityName: string;
-    abn: string;
-    acn: string;
-    tfn: string;
-    contactName: string;
-    contactEmail: string;
-    contactPhone: string;
-    contactMobile: string;
-    contactPosition: string;
-    streetAddress: string;
-    streetAddress2: string;
-    city: string;
-    state: string;
-    postcode: string;
-    gstRegistered: string;
-    asicAgent: string;
-    [key: string]: string | File | null;
-  };
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
-  handleRadioChange: (name: string, value: string) => void;
-  handleFileChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => void;
-  errors?: Record<string, string>;
+    taxLodgement: string
+    entityType: string
+    entityName: string
+    abn: string
+    acn: string
+    tfn: string
+    contactName: string
+    contactEmail: string
+    contactPhone: string
+    contactMobile: string
+    contactPosition: string
+    streetAddress: string
+    streetAddress2: string
+    city: string
+    state: string
+    postcode: string
+    gstRegistered: string
+    asicAgent: string
+    [key: string]: string | File | null
+  }
+  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void
+  handleRadioChange: (name: string, value: string) => void
+  handleFileChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => void
+  errors?: Record<string, string>
 }
 
-const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, handleRadioChange, handleFileChange, errors = {} }) => {
+const FormStep1Business: React.FC<FormStep1Props> = ({
+  formData,
+  handleChange,
+  handleRadioChange,
+  handleFileChange,
+  errors = {},
+}) => {
+  const [showTfn, setShowTfn] = useState(false)
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
       <div className="bg-purple-600 text-white p-4 -mx-6 -mt-6 mb-6 rounded-t-lg">
         <h2 className="text-xl font-semibold">Part 1: Business Details</h2>
       </div>
-      
+
       <div className="space-y-6">
         {/* Tax Lodgement Service */}
         <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
           <Label htmlFor="taxLodgement" className="block text-gray-700 font-medium mb-2">
             Do you require tax lodgement services? <span className="text-red-500">*</span>
           </Label>
-          <RadioGroup 
-            value={formData.taxLodgement} 
-            onValueChange={(value) => handleRadioChange('taxLodgement', value)}
+          <RadioGroup
+            value={formData.taxLodgement}
+            onValueChange={(value) => handleRadioChange("taxLodgement", value)}
             className="flex flex-row space-x-6"
           >
             <div className="flex items-center space-x-2">
@@ -62,13 +72,15 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
           </RadioGroup>
           {errors.taxLodgement && <p className="mt-1 text-sm text-red-500">{errors.taxLodgement}</p>}
         </div>
-        
+
         {/* Entity Type */}
         <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
-          <Label htmlFor="entityType" className="block text-gray-700 font-medium mb-2">Entity Type</Label>
-          <RadioGroup 
-            value={formData.entityType} 
-            onValueChange={(value) => handleRadioChange('entityType', value)}
+          <Label htmlFor="entityType" className="block text-gray-700 font-medium mb-2">
+            Entity Type
+          </Label>
+          <RadioGroup
+            value={formData.entityType}
+            onValueChange={(value) => handleRadioChange("entityType", value)}
             className="grid grid-cols-2 md:grid-cols-4 gap-4"
           >
             <div className="flex items-center space-x-2">
@@ -101,25 +113,23 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
             name="entityName"
             value={formData.entityName}
             onChange={handleChange}
-            error={errors.entityName}
+            className={`w-full border ${errors.entityName ? "border-red-500" : "border-gray-300"} rounded px-3 py-2`}
             required
+            placeholder="Enter your business entity name"
           />
+          {errors.entityName && <p className="mt-1 text-xs text-red-500">{errors.entityName}</p>}
         </div>
 
         <div className="border-t border-gray-200 pt-6">
           <h3 className="text-lg font-semibold mb-4 text-purple-700">Business Registration Details</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* ABN */}
             <div className="form-group">
               <Label htmlFor="abn" className="flex items-center text-gray-700 font-medium mb-2">
                 Australian Business Number (ABN)
                 <div className="group relative ml-2">
-                  <button
-                    type="button"
-                    className="text-blue-500"
-                    aria-label="ABN information"
-                  >
+                  <button type="button" className="text-blue-500" aria-label="ABN information">
                     <Info size={16} />
                   </button>
                   <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
@@ -142,11 +152,7 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
               <Label htmlFor="acn" className="flex items-center text-gray-700 font-medium mb-2">
                 Australian Company Number (ACN)
                 <div className="group relative ml-2">
-                  <button
-                    type="button"
-                    className="text-blue-500"
-                    aria-label="ACN information"
-                  >
+                  <button type="button" className="text-blue-500" aria-label="ACN information">
                     <Info size={16} />
                   </button>
                   <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
@@ -170,11 +176,7 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
             <Label htmlFor="tfn" className="flex items-center text-gray-700 font-medium mb-2">
               Tax File Number (TFN)
               <div className="group relative ml-2">
-                <button
-                  type="button"
-                  className="text-blue-500"
-                  aria-label="TFN information"
-                >
+                <button type="button" className="text-blue-500" aria-label="TFN information">
                   <Info size={16} />
                 </button>
                 <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
@@ -189,8 +191,8 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
               onChange={handleChange}
               error={errors.tfn}
               isPassword={true}
-              isPasswordVisible={false}
-              togglePasswordVisibility={() => {}}
+              isPasswordVisible={showTfn}
+              togglePasswordVisibility={() => setShowTfn(!showTfn)}
             />
           </div>
         </div>
@@ -198,7 +200,7 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
         {/* Contact Details Section */}
         <div className="border-t border-gray-200 pt-6 mt-6">
           <h3 className="text-lg font-semibold mb-4 text-purple-700">Contact Details</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Contact Name */}
             <div className="form-group">
@@ -282,7 +284,7 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
         {/* Business Address Section */}
         <div className="border-t border-gray-200 pt-6 mt-6">
           <h3 className="text-lg font-semibold mb-4 text-purple-700">Business Address</h3>
-          
+
           {/* Street Address */}
           <div className="form-group mb-4">
             <Label htmlFor="streetAddress" className="flex items-center text-gray-700 font-medium mb-2">
@@ -318,14 +320,7 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
               <Label htmlFor="city" className="flex items-center text-gray-700 font-medium mb-2">
                 City/Suburb <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="city"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                error={errors.city}
-                required
-              />
+              <Input id="city" name="city" value={formData.city} onChange={handleChange} error={errors.city} required />
             </div>
 
             {/* State */}
@@ -376,11 +371,7 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
           <Label htmlFor="gstRegistered" className="flex items-center text-gray-700 font-medium mb-2">
             Is the business registered for GST?
             <div className="group relative ml-2">
-              <button
-                type="button"
-                className="text-blue-500"
-                aria-label="GST information"
-              >
+              <button type="button" className="text-blue-500" aria-label="GST information">
                 <Info size={16} />
               </button>
               <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
@@ -388,9 +379,9 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
               </div>
             </div>
           </Label>
-          <RadioGroup 
-            value={formData.gstRegistered} 
-            onValueChange={(value) => handleRadioChange('gstRegistered', value)}
+          <RadioGroup
+            value={formData.gstRegistered}
+            onValueChange={(value) => handleRadioChange("gstRegistered", value)}
             className="flex flex-row space-x-6"
           >
             <div className="flex items-center space-x-2">
@@ -409,21 +400,18 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
           <Label htmlFor="asicAgent" className="flex items-center text-gray-700 font-medium mb-2">
             Do you want us to be your ASIC agent?
             <div className="group relative ml-2">
-              <button
-                type="button"
-                className="text-blue-500"
-                aria-label="ASIC agent information"
-              >
+              <button type="button" className="text-blue-500" aria-label="ASIC agent information">
                 <Info size={16} />
               </button>
               <div className="absolute z-50 left-6 -top-2 w-64 scale-0 rounded bg-slate-800 p-2 text-xs text-white shadow-lg transition-all group-hover:scale-100">
-                ASIC (Australian Securities and Investments Commission) agents assist with company registrations, changes, and compliance.
+                ASIC (Australian Securities and Investments Commission) agents assist with company registrations,
+                changes, and compliance.
               </div>
             </div>
           </Label>
-          <RadioGroup 
-            value={formData.asicAgent} 
-            onValueChange={(value) => handleRadioChange('asicAgent', value)}
+          <RadioGroup
+            value={formData.asicAgent}
+            onValueChange={(value) => handleRadioChange("asicAgent", value)}
             className="flex flex-row space-x-6"
           >
             <div className="flex items-center space-x-2">
@@ -438,7 +426,7 @@ const FormStep1Business: React.FC<FormStep1Props> = ({ formData, handleChange, h
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default FormStep1Business;
+export default FormStep1Business

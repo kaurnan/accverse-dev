@@ -1,730 +1,623 @@
+"use client"
 
-import React, { useState, useRef } from 'react';
-import { Button } from '../ui/button';
-import { toast } from 'react-toastify';
-import FormStep1SMSF from './smsf/FormStep1SMSF';
-import FormStep2SMSF from './smsf/FormStep2SMSF';
-import FormStep3SMSF from './smsf/FormStep3SMSF';
-import FormStep4SMSF from './smsf/FormStep4SMSF';
-import FormStep5SMSF from './smsf/FormStep5SMSF';
-import apiClient from '../../services/api';
-import { Check, AlertCircle, ArrowRight, ArrowLeft, Save } from 'lucide-react';
+import React, { useEffect, useRef, useState } from "react"
+import { ChevronLeft, ChevronRight, Save, Send, Loader2 } from "lucide-react"
+import { Button } from "../ui/button"
+import FormStep1SMSF from "./smsf/FormStep1SMSF"
+import FormStep2SMSF from "./smsf/FormStep2SMSF"
+import FormStep3SMSF from "./smsf/FormStep3SMSF"
+import FormStep4SMSF from "./smsf/FormStep4SMSF"
+import FormStep5SMSF from "./smsf/FormStep5SMSF"
+import { saveSMSFFormProgress, validateSMSFFormStep, submitSMSFForm } from "../../actions/smsf-form-actions"
+import { useToast } from "../../hooks/use-toast"
+import { FormErrorSummary } from "../ui/form-error-summary"
+import { validateSMSFFormStep1, validateSMSFFormStep2, scrollToFirstError } from "../../utils/form-validation"
+import { ensureFormHasRequiredFields } from "../../utils/form-data-loader"
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom"
+import type { SMSFFormData, EngagementLetterData } from "../../types/form-types"
 
-// Define the form data interface for SMSF
-interface SMSFFormData {
-  // Part 1: SMSF Details
-  smsfName: string;
-  streetAddress: string;
-  streetAddress2: string;
-  city: string;
-  state: string;
-  postcode: string;
-  contactName: string;
-  contactPosition: string;
-  contactPhone: string;
-  contactMobile: string;
-  contactEmail: string;
-  trusteeType: string;
-  financialYear: string;
-  updateAtoDetails: string;
-  bankBsb: string;
-  bankAccountNo: string;
-  bankAccountName: string;
-  bankName: string;
-  electronicServiceAddress: string;
-
-  // Part 2: Member Details
-  memberCount: string;
-  prevAccountantName: string;
-  prevAccountantContact: string;
-  prevAccountantPhone: string;
-  prevAccountantMobile: string;
-  prevAccountantEmail: string;
-  lastFinancialStatements: File | null;
-  lastTaxReturn: File | null;
-
-  // Part 3: Fund Records
-  trustDeeds: File | null;
-  originalFundRecords: File | null;
-  memberApplication: File | null;
-  trusteeConsent: File | null;
-  fundInvestmentStrategy: File | null;
-  rolloverStatements: File | null;
-
-  // Part 3: Assets Details
-  bankAccountCount: string;
-  termDeposits: string;
-  shares: string;
-  shareRegistryCount: string;
-  srn: string;
-  unlistedShares: string;
-  unlistedShareCertificate: string;
-  unlistedShareFinancials: string;
-  property: string;
-  propertyLoanAgreement: string;
-  propertyLoanStatements: string;
-  propertyTitleDeed: string;
-  propertySettlementStatement: string;
-  propertyLeaseAgreement: string;
-  propertyInsurancePolicy: string;
-  propertyContractOfSale: string;
-  propertyDeclarationOfCustody: string;
-  preciousMetals: string;
-  preciousMetalsPurchase: string;
-  preciousMetalsStatements: string;
-  preciousMetalsStorage: string;
-  preciousMetalsInsurance: string;
-  preciousMetalsBullions: string;
-  preciousMetalsPhotos: string;
-  cryptoCurrency: string;
-  cryptoStatements: string;
-  cryptoTrading: string;
-
-  // Part 4: Income and Expense Details
-  capitalGains: string;
-  propertyCapitalGains: string;
-  rentalIncome: string;
-  trustDistribution: string;
-  partnershipDistribution: string;
-  dividendIncome: string;
-  investmentExpenses: string;
-  managementExpenses: string;
-  expenseInvoices: File | null;
-
-  // Part 5: Declaration
-  signature: string;
-  declarationAccepted: string;
-
-  // Other
-  formType: string;
-  
-  [key: string]: string | File | null;
+interface SMSFTaxFormProps {
+  formType?: string
 }
 
-const SMSFTaxForm: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<SMSFFormData>({
-    // Part 1: SMSF Details
-    smsfName: '',
-    streetAddress: '',
-    streetAddress2: '',
-    city: '',
-    state: '',
-    postcode: '',
-    contactName: '',
-    contactPosition: '',
-    contactPhone: '',
-    contactMobile: '',
-    contactEmail: '',
-    trusteeType: '',
-    financialYear: '',
-    updateAtoDetails: '',
-    bankBsb: '',
-    bankAccountNo: '',
-    bankAccountName: '',
-    bankName: '',
-    electronicServiceAddress: '',
+const STEPS = ["SMSF Details", "Member Details", "Fund Records", "Income & Expenses", "Declaration"]
 
-    // Part 2: Member Details
-    memberCount: '',
-    prevAccountantName: '',
-    prevAccountantContact: '',
-    prevAccountantPhone: '',
-    prevAccountantMobile: '',
-    prevAccountantEmail: '',
+const CHARACTER_LIMITS = {
+  smsfName: 100,
+  streetAddress: 100,
+  streetAddress2: 100,
+  city: 50,
+  contactName: 100,
+  contactPosition: 50,
+  contactEmail: 100,
+  electronicServiceAddress: 100,
+  bankAccountName: 100,
+  bankName: 50,
+  prevAccountantName: 100,
+  prevAccountantContact: 100,
+  prevAccountantEmail: 100,
+  signature: 100,
+}
+
+const SMSFTaxForm: React.FC<SMSFTaxFormProps> = ({ formType }) => {
+  const { toast } = useToast()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const [currentStep, setCurrentStep] = useState(1)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showErrors, setShowErrors] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const formRef = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    try {
+      const savedData = localStorage.getItem('smsfFormData')
+      if (savedData) {
+        const parsedData = JSON.parse(savedData)
+        // Only use the saved data if it's for an SMSF form
+        if (parsedData.formType === 'smsf') {
+          console.log("Loaded SMSF form data from localStorage:", parsedData)
+          setFormData(prevData => ({ ...prevData, ...parsedData }))
+          toast({
+            title: "Form progress loaded",
+            description: "Your previously saved form progress has been loaded."
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error loading form data from localStorage:", error)
+    }
+  }, [toast])
+
+
+  const [formData, setFormData] = useState<SMSFFormData>({
+    formType: formType || "smsf",
+    smsfName: "",
+    streetAddress: "",
+    streetAddress2: "",
+    city: "",
+    state: "",
+    postcode: "",
+    contactName: "",
+    contactPosition: "",
+    contactPhone: "",
+    contactMobile: "",
+    contactEmail: "",
+    trusteeType: "individual",
+    financialYear: "",
+    updateAtoDetails: "yes",
+    electronicServiceAddress: "",
+    bankBsb: "",
+    bankAccountNo: "",
+    confirmAccountNo: "",
+    bankAccountName: "",
+    bankName: "",
+    memberCount: "",
+    prevAccountantName: "",
+    prevAccountantContact: "",
+    prevAccountantPhone: "",
+    prevAccountantMobile: "",
+    prevAccountantEmail: "",
+    firstName: "",
+    lastName: "",
     lastFinancialStatements: null,
     lastTaxReturn: null,
-
-    // Part 3: Fund Records
     trustDeeds: null,
     originalFundRecords: null,
     memberApplication: null,
     trusteeConsent: null,
     fundInvestmentStrategy: null,
     rolloverStatements: null,
-
-    // Part 3: Assets Details
-    bankAccountCount: '',
-    termDeposits: '',
-    shares: '',
-    shareRegistryCount: '',
-    srn: '',
-    unlistedShares: '',
-    unlistedShareCertificate: '',
-    unlistedShareFinancials: '',
-    property: '',
-    propertyLoanAgreement: '',
-    propertyLoanStatements: '',
-    propertyTitleDeed: '',
-    propertySettlementStatement: '',
-    propertyLeaseAgreement: '',
-    propertyInsurancePolicy: '',
-    propertyContractOfSale: '',
-    propertyDeclarationOfCustody: '',
-    preciousMetals: '',
-    preciousMetalsPurchase: '',
-    preciousMetalsStatements: '',
-    preciousMetalsStorage: '',
-    preciousMetalsInsurance: '',
-    preciousMetalsBullions: '',
-    preciousMetalsPhotos: '',
-    cryptoCurrency: '',
-    cryptoStatements: '',
-    cryptoTrading: '',
-
-    // Part 4: Income and Expense Details
-    capitalGains: '',
-    propertyCapitalGains: '',
-    rentalIncome: '',
-    trustDistribution: '',
-    partnershipDistribution: '',
-    dividendIncome: '',
-    investmentExpenses: '',
-    managementExpenses: '',
     expenseInvoices: null,
+    capitalGains: "no",
+    propertyCapitalGains: "no",
+    rentalIncome: "no",
+    trustDistribution: "no",
+    partnershipDistribution: "no",
+    dividendIncome: "no",
+    investmentExpenses: "no",
+    managementExpenses: "no",
+    signature: null,
+    declarationAccepted: "no",
+    engagementLetter: {
+      accepted: false,
+      signature: null,
+      dateSigned: null,
+    },
+  })
 
-  // Part 5: Declaration
-  signature: '',
-  declarationAccepted: '',
-    
-    // Other
-    formType: 'smsf'
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [savedFormId, setSavedFormId] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [saveError, setSaveError] = useState(false);
-
-  const formRef = useRef<HTMLDivElement>(null);
-
-  const validateCurrentStep = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    let isValid = true;
-
-    switch (currentStep) {
-      case 1:
-        // Validate SMSF Details
-        if (!formData.smsfName) {
-          newErrors.smsfName = 'SMSF name is required';
-          isValid = false;
-        }
-        if (!formData.streetAddress) {
-          newErrors.streetAddress = 'Address is required';
-          isValid = false;
-        }
-        if (!formData.city) {
-          newErrors.city = 'City is required';
-          isValid = false;
-        }
-        if (!formData.state) {
-          newErrors.state = 'State is required';
-          isValid = false;
-        }
-        if (!formData.postcode) {
-          newErrors.postcode = 'Postcode is required';
-          isValid = false;
-        }
-        if (!formData.contactName) {
-          newErrors.contactName = 'Contact name is required';
-          isValid = false;
-        }
-        if (!formData.contactEmail) {
-          newErrors.contactEmail = 'Contact email is required';
-          isValid = false;
-        } else if (!/\S+@\S+\.\S+/.test(formData.contactEmail)) {
-          newErrors.contactEmail = 'Please enter a valid email address';
-          isValid = false;
-        }
-        if (!formData.contactPhone && !formData.contactMobile) {
-          newErrors.contactPhone = 'At least one contact number is required';
-          isValid = false;
-        }
-        break;
-        
-      case 2:
-        // Validate Member Details
-        if (!formData.memberCount) {
-          newErrors.memberCount = 'Please select the number of members';
-          isValid = false;
-        }
-        break;
-
-      case 5:
-        // Validate Declaration
-        if (!formData.signature) {
-          newErrors.signature = 'Signature is required';
-          isValid = false;
-        }
-        if (!formData.declarationAccepted || formData.declarationAccepted !== 'yes') {
-          newErrors.declarationAccepted = 'You must agree to the declaration';
-          isValid = false;
-        }
-        break;
-
-      default:
-        // No specific validations for other steps
-        break;
+  useEffect(() => {
+    if (formType) {
+      setFormData((prev) => ({
+        ...prev,
+        formType: formType,
+      }))
     }
+  }, [formType])
 
-    setErrors(newErrors);
-    return isValid;
-  };
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const fromEngagement = params.get("fromEngagement")
+    const engagementCompleted = params.get("engagementCompleted")
+    const returnedStep = params.get("returnedStep")
 
-  const scrollToFirstError = () => {
-    setTimeout(() => {
-      const firstErrorElement = document.querySelector('.border-red-500');
-      if (firstErrorElement) {
-        firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
-  };
-
-  const handleNext = () => {
-    if (validateCurrentStep()) {
-      if (currentStep < 5) {
-        setCurrentStep(currentStep + 1);
-        window.scrollTo(0, 0);
-        // Save progress to backend
-        if (formData.contactEmail) {
-          handleSaveProgress();
-        }
-      }
-    } else {
-      toast.error(
-        <div className="flex items-center gap-2">
-          <AlertCircle className="h-5 w-5 text-red-500" />
-          <span>Please correct the errors before proceeding.</span>
-        </div>,
-        {
-          autoClose: 5000,
-          style: { background: '#fef2f2', borderLeft: '4px solid #ef4444' }
-        }
-      );
-      scrollToFirstError();
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-      window.scrollTo(0, 0);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear error when field is changed
-    if (errors[name]) {
-      setErrors(prev => {
-        const updated = { ...prev };
-        delete updated[name];
-        return updated;
-      });
-    }
-  };
-
-  const handleRadioChange = (name: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear error when field is changed
-    if (errors[name]) {
-      setErrors(prev => {
-        const updated = { ...prev };
-        delete updated[name];
-        return updated;
-      });
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-    if (e.target.files && e.target.files[0]) {
+    if (fromEngagement === "true" && engagementCompleted === "true") {
+      // Update engagement letter status
       setFormData(prev => ({
         ...prev,
-        [fieldName]: e.target.files ? e.target.files[0] : null
+        engagementLetter: {
+          ...prev.engagementLetter,
+          accepted: true,
+          dateSigned: new Date().toISOString()
+        }
       }));
-      console.log(`File selected for ${fieldName}:`, e.target.files[0]);
       
-      // Clear error when field is changed
-      if (errors[fieldName]) {
-        setErrors(prev => {
-          const updated = { ...prev };
-          delete updated[fieldName];
-          return updated;
-        });
+      toast({
+        title: "Engagement Letter Completed",
+        description: "Thank you for completing the engagement letter."
+      });
+      
+      // Return to the previously stored step (or stay on current step)
+      if (returnedStep && !isNaN(Number(returnedStep))) {
+        setCurrentStep(Number(returnedStep));
+      }
+      
+      // Clean up URL params
+      navigate("/tax-solutions/smsf", { replace: true });
+    }
+    
+    // Check for state data passed from EngagementLetterPage
+    if (location.state?.updatedFormData) {
+      setFormData(prev => ({
+        ...prev,
+        ...location.state.updatedFormData,
+        engagementLetter: {
+          ...prev.engagementLetter,
+          ...location.state.updatedFormData.engagementLetter,
+          accepted: true,
+          dateSigned: new Date().toISOString()
+        }
+      }));
+      
+      // If we have a stored step to return to, go there
+      if (location.state.currentStep) {
+        setCurrentStep(location.state.currentStep);
+      }
+      
+      // Clear the state to prevent reapplying
+      navigate("/tax-solutions/smsf", { replace: true });
+    }
+  }, [location.state, navigate, searchParams, toast]);
+
+  useEffect(() => {
+    const fullName = formData.contactName.trim()
+    if (fullName && (!formData.firstName || !formData.lastName)) {
+      const nameParts = fullName.split(" ")
+      if (nameParts.length >= 2) {
+        const firstName = nameParts[0]
+        const lastName = nameParts.slice(1).join(" ")
+        setFormData((prev) => ({
+          ...prev,
+          firstName,
+          lastName,
+        }))
+      } else if (nameParts.length === 1) {
+        setFormData((prev) => ({
+          ...prev,
+          firstName: nameParts[0],
+          lastName: nameParts[0],
+        }))
       }
     }
-  };
+  }, [formData.contactName])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target
+    let validatedValue = value
+    if (
+      CHARACTER_LIMITS[name as keyof typeof CHARACTER_LIMITS] &&
+      value.length > CHARACTER_LIMITS[name as keyof typeof CHARACTER_LIMITS]
+    ) {
+      validatedValue = value.substring(0, CHARACTER_LIMITS[name as keyof typeof CHARACTER_LIMITS])
+    }
+
+    if (name === "postcode") {
+      validatedValue = value.replace(/\D/g, "").substring(0, 4)
+    } else if (["contactPhone", "contactMobile", "prevAccountantPhone", "prevAccountantMobile"].includes(name)) {
+      validatedValue = value.replace(/\D/g, "").substring(0, 10)
+      if (validatedValue.length > 0 && !validatedValue.startsWith("0")) {
+        validatedValue = "0" + validatedValue
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: validatedValue }))
+
+    if (errors[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
+  }
+
+  const handleRadioChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }))
+
+    if (errors[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+    const file = e.target.files?.[0] || null
+    setFormData((prev) => ({ ...prev, [fieldName]: file }))
+
+    if (errors[fieldName]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[fieldName]
+        return newErrors
+      })
+    }
+  }
+
+  const handleFileUpload = (fieldName: string, file: File | null) => {
+    setFormData((prev) => ({ ...prev, [fieldName]: file }))
+
+    if (errors[fieldName]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[fieldName]
+        return newErrors
+      })
+    }
+  }
+
+  const handleFileDelete = (fieldName: string) => {
+    setFormData((prev) => ({ ...prev, [fieldName]: null }))
+  }
+
+  const validateCurrentStep = async (): Promise<boolean> => {
+    let stepErrors: Record<string, string> = {}
+
+    switch (currentStep) {
+      case 1:
+        stepErrors = validateSMSFFormStep1(formData)
+        break
+      case 2:
+        stepErrors = validateSMSFFormStep2(formData)
+        break
+      default:
+        stepErrors = await validateSMSFFormStep(currentStep, formData)
+        break
+    }
+
+    setErrors(stepErrors)
+    setShowErrors(Object.keys(stepErrors).length > 0)
+
+    return Object.keys(stepErrors).length === 0
+  }
+
+  const handleNext = async () => {
+    const isValid = await validateCurrentStep()
+
+    if (isValid) {
+      handleSaveProgress()
+      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length))
+      setShowErrors(false)
+      window.scrollTo(0, 0)
+    } else {
+      toast({
+        title: "Please correct the errors",
+        description: "There are errors in the form that need to be fixed before proceeding.",
+        variant: "destructive",
+      })
+      setTimeout(() => {
+        scrollToFirstError(errors)
+      }, 100)
+    }
+  }
+
+  const handlePrevious = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1))
+    setShowErrors(false)
+    window.scrollTo(0, 0)
+  }
 
   const handleSaveProgress = async () => {
+    setIsSaving(true)
     try {
-      setSaveSuccess(false);
-      setSaveError(false);
-      // Create a JSON representation of the form data (without files)
-      const formDataForSaving = { ...formData };
-      
-      // Remove file objects which can't be stringified
-      Object.keys(formDataForSaving).forEach(key => {
-        if (formDataForSaving[key] instanceof File) {
-          formDataForSaving[key] = null;
-        }
-      });
-      
-      // Add saved form ID if available
-      if (savedFormId) {
-        formDataForSaving.id = savedFormId;
+      const dataToSave = {
+        ...formData,
+        formType: "smsf",
       }
 
-      // Send save request to backend
-      console.log('Saving form progress...');
-      const response = await apiClient.post('/tax-solutions/save-progress', formDataForSaving);
-      
-      if (response.data && response.data.id) {
-        setSavedFormId(response.data.id);
-        setSaveSuccess(true);
-        toast.success(
-          <div className="flex items-center gap-2">
-            <Check className="h-5 w-5 text-green-500" />
-            <span>Progress saved successfully!</span>
-          </div>,
-          {
-            autoClose: 3000,
-            style: { background: '#f0fdf4', borderLeft: '4px solid #22c55e' }
+      if (!dataToSave.firstName || !dataToSave.lastName) {
+        const fullName = dataToSave.contactName.trim()
+        if (fullName) {
+          const nameParts = fullName.split(" ")
+          if (nameParts.length >= 2) {
+            dataToSave.firstName = nameParts[0]
+            dataToSave.lastName = nameParts.slice(1).join(" ")
+          } else {
+            dataToSave.firstName = fullName
+            dataToSave.lastName = fullName
           }
-        );
-        
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          setSaveSuccess(false);
-        }, 3000);
-      }
-      
-    } catch (error) {
-      console.error('Error saving progress:', error);
-      setSaveError(true);
-      toast.error(
-        <div className="flex items-center gap-2">
-          <AlertCircle className="h-5 w-5 text-red-500" />
-          <span>Failed to save progress</span>
-        </div>,
-        {
-          autoClose: 5000,
-          style: { background: '#fef2f2', borderLeft: '4px solid #ef4444' }
         }
-      );
+      }
+
+      console.log("Saving SMSF form progress to localStorage with formType:", dataToSave.formType)
+
+      const result = await saveSMSFFormProgress(dataToSave)
+      if (result.success) {
+        toast({
+          title: "Progress saved",
+          description: "Your form progress has been saved. You can continue later.",
+        })
+      } else {
+        toast({
+          title: "Error saving progress",
+          description: result.error || "An error occurred while saving your progress.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error saving form progress:", error)
+      toast({
+        title: "Error saving progress",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
     }
-  };
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
+    e.preventDefault()
+
+    // First check if engagement letter is completed
+    if (!formData.engagementLetter?.accepted) {
+      toast({
+        title: "Engagement Letter Required",
+        description: "Please complete and accept the engagement letter before submitting.",
+        variant: "destructive"
+      })
+      // Scroll to the engagement letter section
+      const engagementSection = document.getElementById('engagement-letter-section')
+      if (engagementSection) {
+        engagementSection.scrollIntoView({ behavior: 'smooth' })
+      }
+      return
+    }
+
+    const isStepValid = await validateCurrentStep()
+    if (!isStepValid) {
+      toast({
+        title: "Please correct the errors",
+        description: "There are errors in the form that need to be fixed before submission.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
 
     try {
-      // Validation
-      if (!validateCurrentStep()) {
-        toast.error('Please fill in all required fields');
-        setSubmitting(false);
-        scrollToFirstError();
-        return;
+      const formDataToSubmit = new FormData()
+
+      // First, add the critical fields
+      formDataToSubmit.append("formType", "smsf")
+      formDataToSubmit.append("firstName", formData.firstName || "")
+      formDataToSubmit.append("lastName", formData.lastName || "")
+      formDataToSubmit.append("entityName", formData.smsfName || "")
+      formDataToSubmit.append("smsfName", formData.smsfName || "")
+
+      // Then add all other fields
+      for (const [key, value] of Object.entries(formData)) {
+        if (value !== null && value !== undefined) {
+          if (key === "engagementLetter") {
+            formDataToSubmit.append(key, JSON.stringify(value))
+          } else if (typeof value === "object" && value !== null && !(value instanceof File)) {
+            formDataToSubmit.append(key, JSON.stringify(value))
+          } else if (value instanceof File) {
+            formDataToSubmit.append(key, value)
+          } else if (typeof value === "string" || typeof value === "number") {
+            formDataToSubmit.append(key, value.toString())
+          }
+        }
       }
 
-      // Create a FormData object to handle file uploads
-      const submissionData = new FormData();
-      
-      // Add all form fields to the FormData object
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value instanceof File) {
-          console.log(`Appending file for ${key}:`, value);
-          submissionData.append(key, value);
-        } else if (value !== null && value !== undefined) {
-          submissionData.append(key, value.toString());
-        }
-      });
-      
-      console.log('About to submit SMSF form data');
-      
-      // Send data to backend API
-      const response = await apiClient.post('/tax-solutions/submit', submissionData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      console.log('SMSF form submission response:', response.data);
-      toast.success(
-        <div className="flex items-center gap-2">
-          <Check className="h-5 w-5 text-green-500" />
-          <span>SMSF tax form submitted successfully! We will contact you soon.</span>
-        </div>,
-        {
-          autoClose: 5000,
-          style: { background: '#f0fdf4', borderLeft: '4px solid #22c55e' }
-        }
-      );
-      
-      // Reset form after successful submission
-      setFormData({
-        // Reset to initial state
-        smsfName: '',
-        streetAddress: '',
-        streetAddress2: '',
-        city: '',
-        state: '',
-        postcode: '',
-        contactName: '',
-        contactPosition: '',
-        contactPhone: '',
-        contactMobile: '',
-        contactEmail: '',
-        trusteeType: '',
-        financialYear: '',
-        updateAtoDetails: '',
-        bankBsb: '',
-        bankAccountNo: '',
-        bankAccountName: '',
-        bankName: '',
-        electronicServiceAddress: '',
-        memberCount: '',
-        prevAccountantName: '',
-        prevAccountantContact: '',
-        prevAccountantPhone: '',
-        prevAccountantMobile: '',
-        prevAccountantEmail: '',
-        lastFinancialStatements: null,
-        lastTaxReturn: null,
-        trustDeeds: null,
-        originalFundRecords: null,
-        memberApplication: null,
-        trusteeConsent: null,
-        fundInvestmentStrategy: null,
-        rolloverStatements: null,
-        bankAccountCount: '',
-        termDeposits: '',
-        shares: '',
-        shareRegistryCount: '',
-        srn: '',
-        unlistedShares: '',
-        unlistedShareCertificate: '',
-        unlistedShareFinancials: '',
-        property: '',
-        propertyLoanAgreement: '',
-        propertyLoanStatements: '',
-        propertyTitleDeed: '',
-        propertySettlementStatement: '',
-        propertyLeaseAgreement: '',
-        propertyInsurancePolicy: '',
-        propertyContractOfSale: '',
-        propertyDeclarationOfCustody: '',
-        preciousMetals: '',
-        preciousMetalsPurchase: '',
-        preciousMetalsStatements: '',
-        preciousMetalsStorage: '',
-        preciousMetalsInsurance: '',
-        preciousMetalsBullions: '',
-        preciousMetalsPhotos: '',
-        cryptoCurrency: '',
-        cryptoStatements: '',
-        cryptoTrading: '',
-        capitalGains: '',
-        propertyCapitalGains: '',
-        rentalIncome: '',
-        trustDistribution: '',
-        partnershipDistribution: '',
-        dividendIncome: '',
-        investmentExpenses: '',
-        managementExpenses: '',
-        expenseInvoices: null,
-        signature: '',
-        declarationAccepted: '',
-        formType: 'smsf'
-      });
-      
-      // Return to first step
-      setCurrentStep(1);
-      setSavedFormId(null);
-      
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      toast.error(
-        <div className="flex items-center gap-2">
-          <AlertCircle className="h-5 w-5 text-red-500" />
-          <span>Error submitting form. Please try again.</span>
-        </div>,
-        {
-          autoClose: 5000,
-          style: { background: '#fef2f2', borderLeft: '4px solid #ef4444' }
-        }
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      console.log("Final form data for submission:")
+      for (const [key, value] of formDataToSubmit.entries()) {
+        console.log(`${key}: ${value instanceof File ? value.name : value}`)
+      }
 
-  // Render the appropriate step component based on current step
-  const renderCurrentStep = () => {
+      localStorage.removeItem('smsfFormData');
+      const result = await submitSMSFForm(formDataToSubmit)
+
+      if (result.success) {
+        toast({
+          title: "Form submitted successfully",
+          description: "Your SMSF form has been submitted successfully.",
+        })
+
+        navigate("/tax-solutions/smsf/payment", {
+          state: { formData: formData },
+        })
+      } else {
+        toast({
+          title: "Error submitting form",
+          description: result.error || "An error occurred while submitting your form.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error)
+      toast({
+        title: "Error submitting form",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const renderStepIndicator = () => {
+    return (
+      <div className="mb-10">
+        <div className="flex items-center justify-between">
+          {STEPS.map((step, index) => (
+            <React.Fragment key={index}>
+              <div
+                className={`flex flex-col items-center ${index + 1 === currentStep ? "text-blue-600" : index + 1 < currentStep ? "text-green-600" : "text-gray-400"}`}
+              >
+                <div
+                  className={`rounded-full h-8 w-8 flex items-center justify-center border-2 ${index + 1 === currentStep ? "border-blue-600 bg-blue-50" : index + 1 < currentStep ? "border-green-600 bg-green-50" : "border-gray-300"}`}
+                >
+                  {index + 1 < currentStep ? "✓" : index + 1}
+                </div>
+                <span className="text-xs mt-1 hidden sm:block">{step}</span>
+              </div>
+
+              {index < STEPS.length - 1 && (
+                <div className={`h-0.5 flex-1 ${index + 1 < currentStep ? "bg-green-500" : "bg-gray-300"}`}></div>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  const renderFormContent = () => {
     switch (currentStep) {
       case 1:
         return (
-          <FormStep1SMSF 
-            formData={formData} 
-            handleChange={handleChange} 
+          <FormStep1SMSF
+            formData={formData}
+            handleChange={handleChange}
             handleRadioChange={handleRadioChange}
-            errors={errors} 
+            errors={errors}
           />
-        );
+        )
       case 2:
         return (
-          <FormStep2SMSF 
-            formData={formData} 
+          <FormStep2SMSF
+            formData={formData}
             handleChange={handleChange}
             handleRadioChange={handleRadioChange}
             handleFileChange={handleFileChange}
+            handleFileUpload={handleFileUpload}
             errors={errors}
           />
-        );
+        )
       case 3:
         return (
-          <FormStep3SMSF 
+          <FormStep3SMSF
             formData={formData}
             handleChange={handleChange}
-            handleRadioChange={handleRadioChange}
             handleFileChange={handleFileChange}
+            handleRadioChange={handleRadioChange}
+            handleFileUpload={handleFileUpload}
             errors={errors}
           />
-        );
+        )
       case 4:
         return (
-          <FormStep4SMSF 
+          <FormStep4SMSF
             formData={formData}
             handleChange={handleChange}
             handleRadioChange={handleRadioChange}
             handleFileChange={handleFileChange}
+            handleFileUpload={handleFileUpload}
             errors={errors}
           />
-        );
+        )
       case 5:
         return (
-          <FormStep5SMSF 
-            formData={formData}
+          <FormStep5SMSF
+            formData={{
+              ...formData,
+              engagementLetter: formData.engagementLetter
+                ? {
+                    ...formData.engagementLetter,
+                    signature:
+                      typeof formData.engagementLetter.signature !== "undefined"
+                        ? formData.engagementLetter.signature
+                        : null,
+                  }
+                : undefined,
+            }}
             handleChange={handleChange}
+            handleFileChange={handleFileChange}
             handleRadioChange={handleRadioChange}
+            // handleFileUpload={handleFileUpload}
             errors={errors}
           />
-        );
+        )
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6" ref={formRef}>
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-purple-700">Step {currentStep} of 5</h2>
-            <p className="text-sm text-gray-500">Complete all steps to submit your SMSF information</p>
-          </div>
-          
-          {currentStep < 5 && (
-            <div className="relative">
-              <Button 
-                variant="outline" 
-                onClick={handleSaveProgress} 
-                type="button"
-                className="border-blue-300 hover:bg-blue-50 flex items-center gap-2"
-              >
-                <Save className="h-4 w-4" />
-                Save & Continue Later
-              </Button>
-              
-              {saveSuccess && (
-                <div className="absolute right-0 top-full mt-2 bg-green-50 text-green-700 text-sm p-2 rounded border border-green-200 flex items-center gap-1 z-10">
-                  <Check className="h-4 w-4" />
-                  Progress saved!
-                </div>
-              )}
-              
-              {saveError && (
-                <div className="absolute right-0 top-full mt-2 bg-red-50 text-red-700 text-sm p-2 rounded border border-red-200 flex items-center gap-1 z-10">
-                  <AlertCircle className="h-4 w-4" />
-                  Save failed. Try again.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2.5">
-          <div 
-            className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all duration-300"
-            style={{ width: `${currentStep * 20}%` }}
-          ></div>
-        </div>
-      </div>
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
+      {renderStepIndicator()}
 
-      <form onSubmit={handleSubmit}>
-        {renderCurrentStep()}
+      <FormErrorSummary errors={errors} visible={showErrors} />
 
-        <div className="flex justify-between mt-8">
+      {renderFormContent()}
+
+      <div className="mt-12 flex justify-between items-center">
+        <div>
           {currentStep > 1 && (
-            <Button 
-              variant="outline" 
-              onClick={handlePrevious}
-              type="button"
-              className="border-blue-300 hover:bg-blue-50 flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Previous
+            <Button type="button" variant="outline" onClick={handlePrevious} className="mr-4" disabled={isSubmitting}>
+              <ChevronLeft className="h-4 w-4 mr-2" /> Previous
             </Button>
           )}
-          
-          <div className="ml-auto">
-            {currentStep < 5 && (
-              <Button 
-                onClick={handleNext}
-                type="button"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex items-center gap-2"
-              >
-                Next
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
-            
-            {currentStep === 5 && (
-              <Button 
-                type="submit"
-                disabled={submitting}
-                className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Submit Form
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        </div>
-      </form>
-    </div>
-  );
-};
 
-export default SMSFTaxForm;
+          <Button type="button" variant="outline" onClick={handleSaveProgress} disabled={isSaving || isSubmitting}>
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" /> Save Progress
+              </>
+            )}
+          </Button>
+        </div>
+
+        {currentStep < STEPS.length ? (
+          <Button type="button" onClick={handleNext} className="bg-gradient-to-r from-blue-600 to-purple-600">
+            Next <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        ) : (
+          <Button type="submit" className="bg-gradient-to-r from-green-600 to-blue-600" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" /> Submit Form
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    </form>
+  )
+}
+
+export default SMSFTaxForm

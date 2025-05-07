@@ -17,8 +17,10 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    // Ensure content-type is set for all requests
-    config.headers["Content-Type"] = "application/json"
+    // Don't set content-type for FormData requests - axios will set the correct one with boundary
+    if (!(config.data instanceof FormData)) {
+      config.headers["Content-Type"] = "application/json"
+    }
     console.log(`Making ${config.method?.toUpperCase()} request to ${config.url}`)
     return config
   },
@@ -39,7 +41,7 @@ apiClient.interceptors.response.use(
       console.error(`Server error: ${status}`, data)
 
       // Handle 401 Unauthorized - Try to refresh token if not already trying to refresh
-      if (status === 401 && !config.url.includes('/auth/refresh-token')) {
+      if (status === 401 && !config.url.includes("/auth/refresh-token")) {
         try {
           console.log("Token expired, attempting to refresh...")
           // Get the current token from localStorage (don't use the one from closure)
@@ -60,7 +62,7 @@ apiClient.interceptors.response.use(
         } catch (refreshError) {
           console.error("Token refresh failed:", refreshError)
           // Only redirect to login if we're not already there
-          if (!window.location.pathname.includes('/login')) {
+          if (!window.location.pathname.includes("/login")) {
             console.log("Redirecting to login after failed token refresh")
             localStorage.removeItem("token")
             localStorage.removeItem("user")
@@ -83,15 +85,15 @@ apiClient.interceptors.response.use(
 export const refreshToken = async (): Promise<string | null> => {
   try {
     console.log("Calling refresh token endpoint")
-     // Get the current token (not from closure)
-     const currentToken = localStorage.getItem("token")
-    
-     // Don't attempt to refresh if no token exists
-     if (!currentToken) {
-       console.log("No token to refresh")
-       return null
-     }
-    const response = await apiClient.post("/auth/refresh-token", {})
+    // Get the current token (not from closure)
+    const currentToken = localStorage.getItem("token")
+
+    // Don't attempt to refresh if no token exists
+    if (!currentToken) {
+      console.log("No token to refresh")
+      return null
+    }
+    const response = await apiClient.post("/auth/refresh", {})
     if (response.data && response.data.token) {
       console.log("Token refreshed successfully")
       localStorage.setItem("token", response.data.token)
@@ -104,11 +106,45 @@ export const refreshToken = async (): Promise<string | null> => {
   }
 }
 
-// Auth API calls
-export const login = async (email: string, password: string) => {
-  const response = await apiClient.post("/auth/login", { email, password })
-  return response.data
+export const login = async (email: string, password: string, captchaToken: string) => {
+  try {
+    const response = await axios.post("/api/auth/login", {
+      email,
+      password,
+      captchaToken, // Include CAPTCHA token
+    })
+    return response.data
+  } catch (error) {
+    console.error("Login error:", error)
+    // Rethrow the error with the server's error message if available
+    if (axios.isAxiosError(error) && error.response && error.response.data && error.response.data.error) {
+      throw new Error(error.response.data.error)
+    }
+    throw error
+  }
 }
+
+// export const login = async (email: string, password: string, captchaToken?: string) => {
+//   try {
+//     const response = await fetch("/api/auth/login", {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//       },
+//       body: JSON.stringify({ email, password, captchaToken }),
+//     })
+
+//     if (!response.ok) {
+//       const errorData = await response.json()
+//       throw new Error(errorData.error || "Login failed")
+//     }
+
+//     return await response.json()
+//   } catch (error) {
+//     console.error("Login error:", error)
+//     throw error
+//   }
+// }
 
 export const logout = async () => {
   try {
@@ -127,7 +163,7 @@ export const googleAuth = async (data: {
 }) => {
   console.log("Calling googleAuth with data:", {
     ...data,
-    firebase_token: data.firebase_token ? "TOKEN_HIDDEN_FOR_SECURITY" : null
+    firebase_token: data.firebase_token ? "TOKEN_HIDDEN_FOR_SECURITY" : null,
   })
   const response = await apiClient.post("/auth/google", data)
   return response.data
@@ -143,10 +179,11 @@ export const completeGoogleRegistration = async (userData: {
   city?: string
   state?: string
   zipCode?: string
+  captchaToken?: string
 }) => {
   console.log("Completing Google registration:", {
     ...userData,
-    firebase_token: "TOKEN_HIDDEN_FOR_SECURITY"
+    firebase_token: "TOKEN_HIDDEN_FOR_SECURITY",
   })
   const response = await apiClient.post("/auth/google/complete-registration", userData)
   return response.data
@@ -171,15 +208,93 @@ export const register = async (userData: {
   city?: string
   state?: string
   zipCode?: string
+  captchaToken?: string // Add CAPTCHA token to the registration data
 }) => {
   try {
     const response = await apiClient.post("/auth/register", userData)
     return response.data
   } catch (error) {
+    console.error("Registration error:", error)
     // If registration fails, throw the error to be handled by the component
     throw error
   }
 }
+
+export const validateCaptcha = async (token: string) => {
+  try {
+    const response = await apiClient.post("/auth/validate-captcha", { token })
+    return response.data
+  } catch (error) {
+    console.error("CAPTCHA validation error:", error)
+    throw error
+  }
+}
+
+// export const register = async (userData: {
+//   name: string
+//   email: string
+//   password: string
+//   phone?: string
+//   address?: string
+//   city?: string
+//   state?: string
+//   zipCode?: string
+//   captchaToken?: string
+// }) => {
+//   try {
+//     const response = await fetch("/api/auth/register", {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//       },
+//       body: JSON.stringify(userData),
+//     })
+
+//     if (!response.ok) {
+//       const errorData = await response.json()
+//       throw new Error(errorData.error || "Registration failed")
+//     }
+
+//     return await response.json()
+//   } catch (error) {
+//     console.error("Registration error:", error)
+//     throw error
+//   }
+// }
+
+// /**
+//  * Validate a CAPTCHA token directly
+//  */
+// export const validateCaptcha = async (token: string) => {
+//   try {
+//     const response = await fetch("/api/validate-captcha", {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//       },
+//       body: JSON.stringify({ token }),
+//     })
+
+//     if (!response.ok) {
+//       throw new Error(`CAPTCHA validation failed with status: ${response.status}`)
+//     }
+
+//     return await response.json()
+//   } catch (error) {
+//     console.error("CAPTCHA validation error:", error)
+//     throw error
+//   }
+// }
+
+// export const refreshToken = async (token: string): Promise<{ token: string; user: any }> => {
+//   try {
+//     const response = await axios.post('/api/auth/refresh', { token });
+//     return response.data;
+//   } catch (error) {
+//     handleApiError(error);
+//     throw error;
+//   }
+// };
 
 export const sendVerificationOtp = async (email: string) => {
   console.log("Sending OTP to:", email, "API URL:", API_URL)
@@ -317,82 +432,110 @@ export const getTeamsMeetings = async () => {
 
 export const serviceService = {
   getServices: async () => {
-    const response = await apiClient.get("/services");
-    return response.data;
+    const response = await apiClient.get("/services")
+    return response.data
   },
   getServiceDetails: async (id: number) => {
-    const response = await apiClient.get(`/services/${id}`);
-    return response.data;
+    const response = await apiClient.get(`/services/${id}`)
+    return response.data
   },
   getServiceCategories: async () => {
-    const response = await apiClient.get("/services/categories");
-    return response.data;
+    const response = await apiClient.get("/services/categories")
+    return response.data
   },
-};
+}
 
 // Tax solutions API endpoints
 export const taxSolutionsService = {
-  submitTaxForm: async (formData: FormData) => {
-    const response = await apiClient.post("/tax-solutions/submit", formData, {
+  submitTaxForm: async (formData: FormData | any) => {
+    // Check if formData is already FormData object
+    let formDataToSubmit: FormData
+
+    if (formData instanceof FormData) {
+      formDataToSubmit = formData
+      console.log("Submitting form data:", formDataToSubmit)
+    } else {
+      // If it's a plain object, convert it to FormData
+      formDataToSubmit = new FormData()
+      const { formType, formData: jsonData } = formData
+
+      formDataToSubmit.append("formType", formType)
+
+      // If jsonData is a string, use it directly, otherwise stringify it
+      if (typeof jsonData === "string") {
+        formDataToSubmit.append("formData", jsonData)
+      } else {
+        formDataToSubmit.append("formData", JSON.stringify(jsonData))
+      }
+
+      console.log("Submitting form data:", {
+        formType,
+        formData: typeof jsonData === "string" ? jsonData : JSON.stringify(jsonData),
+      })
+    }
+
+    // Use the correct content type for FormData
+    const response = await apiClient.post("/tax-solutions/submit", formDataToSubmit, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
-    });
-    return response.data;
+    })
+    return response.data
   },
-  
+
   saveProgress: async (formData: any) => {
-    const response = await apiClient.post("/tax-solutions/save-progress", formData);
-    return response.data;
+    console.log("Saving form progress:", formData)
+    const response = await apiClient.post("/tax-solutions/save-progress", formData)
+    return response.data
   },
-  
+
   loadProgress: async (formId: string) => {
-    const response = await apiClient.get(`/tax-solutions/load-progress/${formId}`);
-    return response.data;
+    const response = await apiClient.get(`/tax-solutions/load-progress/${formId}`)
+    return response.data
   },
-  
+
   getFormTemplates: async () => {
-    const response = await apiClient.get("/tax-solutions/templates");
-    return response.data;
-  }
-};
+    const response = await apiClient.get("/tax-solutions/templates")
+    return response.data
+  },
+}
 
 // Appointment API endpoints
 export const appointmentService = {
   getAppointments: async () => {
-    const response = await apiClient.get("/appointments");
-    return response.data;
+    const response = await apiClient.get("/appointments")
+    return response.data
   },
   createAppointment: async (appointmentData: {
-    service_id: number;
-    date: string;
-    time: string;
-    notes?: string;
+    service_id: number
+    date: string
+    time: string
+    notes?: string
   }) => {
-    const response = await apiClient.post("/appointments", appointmentData);
-    return response.data;
+    const response = await apiClient.post("/appointments", appointmentData)
+    return response.data
   },
   getAppointmentDetails: async (id: number) => {
-    const response = await apiClient.get(`/appointments/${id}`);
-    return response.data;
+    const response = await apiClient.get(`/appointments/${id}`)
+    return response.data
   },
   updateAppointment: async (id: number, data: { notes?: string }) => {
-    const response = await apiClient.put(`/appointments/${id}`, data);
-    return response.data;
+    const response = await apiClient.put(`/appointments/${id}`, data)
+    return response.data
   },
   cancelAppointment: async (id: number) => {
-    const response = await apiClient.delete(`/appointments/${id}`);
-    return response.data;
+    const response = await apiClient.delete(`/appointments/${id}`)
+    return response.data
   },
   getAvailableSlots: async (date: string, serviceId?: number) => {
-    let url = `/appointments/available?date=${date}`;
+    let url = `/appointments/available?date=${date}`
     if (serviceId) {
-      url += `&service_id=${serviceId}`;
+      url += `&service_id=${serviceId}`
     }
-    const response = await apiClient.get(url);
-    return response.data;
+    const response = await apiClient.get(url)
+    return response.data
   },
-};
+}
 
 // Payment API calls
 export const getPayments = async () => {
