@@ -1,5 +1,16 @@
 {
   "rewrites": [
+    { "source": "/api/validate-captcha", "destination": "/api/validate-captcha" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "routes": [
+    { "src": "/[^.]+", "dest": "/", "status": 200 }
+  ],
+  "functions": {
+    "api/validate-captcha.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
 }
